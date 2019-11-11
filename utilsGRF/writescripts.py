@@ -447,6 +447,7 @@ Close[outf];
         """)
         
     def write_checksingleparset_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None):
+        """Writes a mathematica file to check the calculation for a given parameter set. Adapted from code by Felix Wong."""
         print('writing mathematica file')
         if len(self.concvars)>1:
             if additionallinespars is None:
@@ -508,7 +509,7 @@ maxD = D[g[yv2],yv2]/.maxY;
 rho =Max[maxD]; (* TAKE MAX GLOBAL DERIVATIVE *)
 pos = maxY[[Position[maxD,Max[maxD]][[1]][[1]]]][[1]][[2]];(* TAKE POS CORRESPONDING TO MAX GLOBAL DERIVATIVE *)
 {pos,rho}
-Plot[g[y] /. {y -> y0}, {y0, 0, 2}]
+Plot[g[yv2] /. {yv2 -> y0}, {y0, 0, 2}]
 
         """)
     
