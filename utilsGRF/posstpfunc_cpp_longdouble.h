@@ -404,10 +404,10 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 //py::print("xmaxder",xmaxder);
 
 
-            }else{
+            }//else{
                 //py::print("Could not find max derivative despite finding critical points.");
-                cout << "Could not find max derivative despite finding critical points.";
-            }
+                //cout << "Could not find max derivative despite finding critical points.";
+            //}
         }
 
 
