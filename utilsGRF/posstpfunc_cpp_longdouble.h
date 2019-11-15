@@ -1,3 +1,6 @@
+
+
+#include <pybind11/pybind11.h>
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <vector>
@@ -6,8 +9,10 @@
 #include <iostream>
 #include "unipolynoboost.hpp"
 
+
 using namespace std;
 using namespace Eigen;
+//namespace py=pybind11;
 
 /* Function to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
 Rosa Martinez Corral. 06/11/2019
@@ -115,10 +120,11 @@ void product_coeffs_vectors(vector<long double> &c1, vector<long double>  &c2, v
 
 
 void remove_zeros_endvector(vector<long double> &v){ //, vector<double> &vout){
-    //py::print("removing zeros");
+    //py::print("removing zeros", v.size());
     //cout << "removing zeros";
 
-    while (abs(v.back())<1e-20){
+    while ((abs(v.back())<1e-20)&(v.size()>0)){
+        //py::print(v.back());
         v.pop_back();
     }
     
@@ -231,7 +237,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
         coeffsx05[i]=i1-i2;
     }
-
+    //py::print("num and den");
     //cout << "Printing GRF num\n";
     //for (i=0;i<max(nnum,nden);i++){
     //    cout << num[i];
@@ -249,12 +255,14 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     if (rootmethod=="aberth"){
     get_positive_real_roots_aberth(coeffsx05, x05v);
     }
-    double maxder=-1;
-    double xmaxder=-1;
+    //py::print("roots x05");
+    vector<double> result = {-1.0, -1.0};
+    //double maxder=-1;
+    //double xmaxder=-1;
 
 
     if (x05v.size()!=1){
-        x05=-1;
+        return result; //unsuccessful result
 
     }else{
         x05=x05v[0];
@@ -264,92 +272,120 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     
 
     double x05double = (double) x05;
-
     
-    if (x05>0.0){
+    
+    //if x05:
 
         //Normalise coefficients of num and den so that hopefully numbers become more reasonable
         
         
-        for (i=0;i<nnum;i++){
-            num[i]=num[i]*pow(x05,(int) i);
-            //printf("term %d, power x05 %Le, num[i] %Le\n",i, pow(x05,i), num[i]);
-        }
+    for (i=0;i<nnum;i++){
+        num[i]=num[i]*pow(x05,(int) i);
+        //py::print("num",num[i]);
 
-        for (i=0;i<nden;i++){
-            den[i]=den[i]*pow(x05,(int) i);
-        }
+        //printf("term %d, power x05 %Le, num[i] %Le\n",i, pow(x05,i), num[i]);
+    }
+    
+
+    for (i=0;i<nden;i++){
+        den[i]=den[i]*pow(x05,(int) i);
+        //py::print("den",den[i]);
+    }
+    
+    
+    
+    long double xp, num_sum, den_sum;
+   
+    std::vector<long double>::size_type Niter;
+
+    //derivative of GRF. It is a fraction: derivativenum/derivativeden
+    //GRF numerator has degree nnum-1 and denominator has degree nden-1. So den*d(num)/dx -num*d(den)/dx is of degree nden-1+nnum-1-1. 
+    // So the array has to be of size nnum+nden-3+1 to account for 0.
+    //GRF denominator has degree nden-1. So squared of this is degree nden-1+nden-1. 
+
+    vector<long double> derivativenum(nnum+nden-2); //(nsize)
+    vector<long double> derivativeden(nden+nden-1);
+
+    get_fraction_derivative_coeffs(num,den,derivativenum,derivativeden);
+    //py::print("derivative coeffs");
+    remove_zeros_endvector(derivativenum); //,derivativenum);
+    remove_zeros_endvector(derivativeden); //_,derivativeden);
+    //py::print("removed zeros");
+    
+    nnum=derivativenum.size();
+    nden=derivativeden.size();
+
+    if ((nnum==0)||(nden==0)){
+        return result; //unsuccessful
+    }
+
+
+
+    vector<long double> derivative2num(nnum+nden-2);
+    vector<long double> derivative2den(nden+nden-1);
+    //cout << "going for second";
+
+    
+
+    //second derivative
+    //py::print("going for second");
+    get_fraction_derivative_coeffs(derivativenum,derivativeden,derivative2num,derivative2den);
+    
+    //cout << "done second\n";
+    remove_zeros_endvector(derivative2num);
+    remove_zeros_endvector(derivative2den);
+
+    if ((derivative2num.size()==0)||(derivative2den.size()==0)){
+        return result; //unsuccessful
+    }
+
+    //py::print("second");
+    
+    
+    vector<long double> critpoints;
+    if (rootmethod=="simple"){
+    get_positive_real_roots(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
+    }
+    if (rootmethod=="aberth"){
+    get_positive_real_roots_aberth(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
+    }
+    //py::print("criticalpoints");
+    
+    //cout << "critpoints\n ";
+    //for(i=0;i<critpoints.size();i++){
+    //    printf("%Le,", critpoints[i]);
+    //}
+    //cout << "\n";
+    
+
+    
+    //if (critpoints.size()==0){
+    //    return result;
+    //}else{
+         //py::print("no critical points found");
+    //    cout << "no critical points found\n";
+
+    if (critpoints.size()>0){
         
-        long double xp, num_sum, den_sum;
-       
-        std::vector<long double>::size_type Niter;
+        long double thirdderx;
+        nnum=derivative2num.size();
+        nden=derivative2den.size();
 
-        //derivative of GRF. It is a fraction: derivativenum/derivativeden
-        //GRF numerator has degree nnum-1 and denominator has degree nden-1. So den*d(num)/dx -num*d(den)/dx is of degree nden-1+nnum-1-1. 
-        // So the array has to be of size nnum+nden-3+1 to account for 0.
-        //GRF denominator has degree nden-1. So squared of this is degree nden-1+nden-1. 
 
-        vector<long double> derivativenum(nnum+nden-2); //(nsize)
-        vector<long double> derivativeden(nden+nden-1);
+        vector<long double> derivative3num(nnum+nden-2);
+        vector<long double> derivative3den(nden+nden-1);
+        //py::print("original size", nnum+nden-2, derivative3num.size());
 
-        get_fraction_derivative_coeffs(num,den,derivativenum,derivativeden);
-        remove_zeros_endvector(derivativenum); //,derivativenum);
-        remove_zeros_endvector(derivativeden); //_,derivativeden);
 
-        nnum=derivativenum.size();
-        nden=derivativeden.size();
 
-        vector<long double> derivative2num(nnum+nden-2);
-        vector<long double> derivative2den(nden+nden-1);
-        //cout << "going for second";
+        get_fraction_derivative_coeffs(derivative2num,derivative2den,derivative3num,derivative3den);
 
+        remove_zeros_endvector(derivative3num);
+        remove_zeros_endvector(derivative3den);
+        //py::print(derivative2num.size(), derivative2den.size());
+        //py::print("derivative3", derivative3num.size());
         
-
-        //second derivative
-        get_fraction_derivative_coeffs(derivativenum,derivativeden,derivative2num,derivative2den);
-        
-        //py::print("second");
-        //cout << "done second\n";
-        remove_zeros_endvector(derivative2num);
-        remove_zeros_endvector(derivative2den);
-        
-        
-        vector<long double> critpoints;
-        if (rootmethod=="simple"){
-        get_positive_real_roots(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
-        }
-        if (rootmethod=="aberth"){
-        get_positive_real_roots_aberth(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
-        }
-        //py::print("criticalpoints");
-        //cout << "critpoints\n ";
-        //for(i=0;i<critpoints.size();i++){
-        //    printf("%Le,", critpoints[i]);
-        //}
-        //cout << "\n";
-        
-
-        
-        //if (critpoints.size()==0){
-             //py::print("no critical points found");
-        //    cout << "no critical points found\n";
-
-        if (critpoints.size()>0){
-            
-            long double thirdderx;
-            nnum=derivative2num.size();
-            nden=derivative2den.size();
-
-
-            vector<long double> derivative3num(nnum+nden-2);
-            vector<long double> derivative3den(nden+nden-1);
-
-            get_fraction_derivative_coeffs(derivative2num,derivative2den,derivative3num,derivative3den);
-
-            remove_zeros_endvector(derivative3num);
-            remove_zeros_endvector(derivative3den);
-            //py::print("derivative3", derivative3num.size());
-            
+        if ((derivative3num.size()>0)&&(derivative3den.size()>0)){
 
             vector <long double> maxderv;
             vector <long double> xmaxderv;
@@ -371,7 +407,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                     //py::print("Adding to den",derivative3den[i],xp,den_sum);
                 }
                 thirdderx=num_sum/den_sum;
-                // py::print("For point",critpoints[j],num_sum,den_sum,thirdderx);
+                //py::print("For point",critpoints[j],num_sum,den_sum,thirdderx);
                 if (thirdderx<0){ //local maximum
 
                     num_sum=0;
@@ -398,23 +434,27 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
             Niter=maxderv.size();
             if (Niter>0){
                 i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
-                maxder=maxderv[i]; //*x05;
-                xmaxder=xmaxderv[i]; ///x05;
+                result[1]=maxderv[i]; //*x05;
+                result[0]=xmaxderv[i]; ///x05;
                 //py::print("maxder",maxder);
                 //py::print("xmaxder",xmaxder);
+                //result[0]=xmaxder;
+                //result[1]=maxder;
 
 
             }//else{
                 //py::print("Could not find max derivative despite finding critical points.");
                 //cout << "Could not find max derivative despite finding critical points.";
             //}
-        }
+        }//derivative3num
+    }//critpoints
 
+    //x05
 
-    }
     
     //printf("at the end: %g, %g\n", xmaxder, maxder);
-    vector<double> result = {xmaxder, maxder};
+    //vector<double> result = {xmaxder, maxder};
+    
     return result;
 }
 
@@ -440,6 +480,10 @@ int compute_monotonic(vector<long double> &num, vector<long double> &den){
     get_fraction_derivative_coeffs(num,den,derivativenum,derivativeden);
     remove_zeros_endvector(derivativenum); //,derivativenum);
     remove_zeros_endvector(derivativeden); //_,derivativeden);
+
+    if ((derivativenum.size()==0)||(derivativeden.size()==0)){
+        return -1;
+    }
 
     //critical points of derivative correspond to roots of derivativenum
     vector<long double> critpoints;
