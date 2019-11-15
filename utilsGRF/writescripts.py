@@ -316,14 +316,21 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
 
         fh.write("""
-    result=compute_monotonic(num,den); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, and the roots otherwise
+    result=compute_monotonic(num,den); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, -3 for each root out of the 10^-10,10^10 range, and the roots otherwise
     int n=result.size();
     py::array_t<double> resultpy = py::array_t<double>(n);
     py::buffer_info bufresultpy = resultpy.request();
     double *ptrresultpy=(double *) bufresultpy.ptr;
     for (int i=0;i<n;i++){
-        if ((result[i]<1e15)&&(result[i]>1e-15)){
+        //py::print("Result is",result[i]);
+        if (result[i]<-0.5){
+        ptrresultpy[i]=result[i];
+        }else{
+        if ((result[i]<pow(10.0,10))&&(result[i]>pow(10.0,-10))){
             ptrresultpy[i]=result[i];
+        }else{
+            ptrresultpy[i]=-3;
+        }
         }
     }
     return resultpy;
