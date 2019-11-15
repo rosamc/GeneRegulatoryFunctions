@@ -34,7 +34,7 @@ pos_ar=np.arange(0.3,1.3+step,step)
 minp=1e-3
 maxp=1e3
 
-wpidx0=36
+wpidx0=31
 wpidx1=61
 npars=62
 
