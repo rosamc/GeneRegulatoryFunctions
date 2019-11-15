@@ -1,0 +1,1 @@
+{"time": "Mon Nov 11 15:25:23 2019", "niters": 10, "niters_conv": 500, "niters_conv_points": 1000, "niters_save": 2, "folder_save": "poln5_out_0", "name_save": "poln5", "prob_par": 0.2, "prob_replace": 0.2, "extr_uniform": [-2, 2], "L_project": 15, "plotting": false, "verbose": true, "dofirstmutate": true, "dopullcentroids": true, "dopulltangents": true}
