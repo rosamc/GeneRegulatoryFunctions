@@ -299,15 +299,15 @@ namespace py=pybind11;\n
         This is experimental and should be tested further as of November 2019."""
 
         if len(self.concvars)>1:
-            fh.write("int interfacemonotonic_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfacemonotonic_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
         else:
-            fh.write("int interfacemonotonic_%s(py::array_t<double> parsar ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfacemonotonic_%s(py::array_t<double> parsar ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
     vector<T> num;
     vector<T> den;
-    int result;
+    vector<double> result;
 """)
 
         if len(self.concvars)>1:
@@ -316,9 +316,18 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
 
         fh.write("""
-    result=compute_monotonic(num,den); //return either 1 or 0
-
-    return  result;
+    result=compute_monotonic(num,den); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, and the roots otherwise
+    int n=result.size();
+    py::array_t<double> resultpy = py::array_t<double>(n);
+    py::buffer_info bufresultpy = resultpy.request();
+    double *ptrresultpy=(double *) bufresultpy.ptr;
+    for (int i=0;i<n;i++){
+        if ((result[i]<1e15)&&(result[i]>1e-15)){
+            ptrresultpy[i]=result[i];
+        }
+    }
+    return resultpy;
+    
     }\n
 """)
 
