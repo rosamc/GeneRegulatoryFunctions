@@ -458,7 +458,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     return result;
 }
 
-int compute_monotonic(vector<long double> &num, vector<long double> &den){
+vector <double> compute_monotonic(vector<long double> &num, vector<long double> &den){
 
 
     std::vector<long double>::size_type i, j, nnum, nden;
@@ -467,6 +467,7 @@ int compute_monotonic(vector<long double> &num, vector<long double> &den){
 
     nnum=num.size();
     nden=den.size(); 
+    vector<double> result;
 
 
     //derivative of GRF. It is a fraction: derivativenum/derivativeden
@@ -482,7 +483,8 @@ int compute_monotonic(vector<long double> &num, vector<long double> &den){
     remove_zeros_endvector(derivativeden); //_,derivativeden);
 
     if ((derivativenum.size()==0)||(derivativeden.size()==0)){
-        return -1;
+        result = {-1.0};
+        return result;
     }
 
     //critical points of derivative correspond to roots of derivativenum
@@ -491,8 +493,12 @@ int compute_monotonic(vector<long double> &num, vector<long double> &den){
     get_positive_real_roots_aberth(derivativenum,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
 
     if (critpoints.size()>0){
-    	return 1;
+    	for (i=0;i<critpoints.size();i++){
+            result.push_back(critpoints[i]);
+        }
     }else{
-    	return 0;
+    	result = {-2.0};
+        
     }
+    return result;
 }
