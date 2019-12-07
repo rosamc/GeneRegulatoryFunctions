@@ -88,7 +88,7 @@ def read_settings(filename):
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
 def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basename='', 
-                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',json=True):
+                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
     final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
@@ -156,7 +156,7 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
         if cont:
 
             fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,i))
-            if json:
+            if jsonf:
                 settings=json.load(open(fnamesett))
                 fnameargs=os.path.join(outf,'%s_%d.args'%(basename,i))
                 args=json.load(open(fnameargs))
