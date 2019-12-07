@@ -186,4 +186,12 @@ def get_parslist_atconf(c,N,intrinsiccoop=False,samesites=False):
                     #print('l%d'%(cn),end=',') #l2 is transition from conf1 to conf2, l3 is from 1 to 3 and so on
     return outstr.strip(',')
 
+def return_CGpars_expr(c,N,intrinsiccoop=False):
+    effK,lines1=write_effective_Ks0(c,N,intrinsiccoop=intrinsiccoop)
+    effw,lines2=write_effective_w(c,N,intrinsiccoop=intrinsiccoop)
+    lines=[]
+    lines.extend(lines1)
+    lines.extend(lines2)
+    parsetcg=','.join(effK)+','+','.join(sorted(effw,key=lambda x:len(x)))
+    return [lines,parsetcg]
         
