@@ -148,9 +148,9 @@ namespace py=pybind11;\n
             for i in range(len(parslistc)):
                 fh.write("    T %s=pars[%d];\n"%(parslistc[i],i))
             if self.samesites:
-                for cn in range(1,c+1): #for each conformation
-                    for site in range(1,N+1): #for each site
-                        fh.write('    T K_%d_%d=K_%d\n'%(cn,site,cn)) #this is just so that I can use same function for effective parameters in all cases
+                for cn in range(1,self.c+1): #for each conformation
+                    for site in range(1,self.N+1): #for each site
+                        fh.write('    T K_%d_%d=K_%d;\n'%(cn,site,cn)) #this is just so that I can use same function for effective parameters in all cases
             effK,lines=auxfuncCG.write_effective_Ks0(self.c,self.N,intrinsiccoop=self.intrinsiccoop,pybind=True)
             for line in lines:
                 fh.write(line)
@@ -235,9 +235,9 @@ namespace py=pybind11;\n
             for i in range(len(parslistc)):
                 fh.write("    T %s=pars[%d];\n"%(parslistc[i],i))
             if self.samesites:
-                for cn in range(1,c+1): #for each conformation
-                    for site in range(1,N+1): #for each site
-                        fh.write('    T K_%d_%d=K_%d\n'%(cn,site,cn)) #this is just so that I can use same function for effective parameters in all cases
+                for cn in range(1,self.c+1): #for each conformation
+                    for site in range(1,self.N+1): #for each site
+                        fh.write('    T K_%d_%d=K_%d;\n'%(cn,site,cn)) #this is just so that I can use same function for effective parameters in all cases
             effK,lines=auxfuncCG.write_effective_Ks0(self.c,self.N,intrinsiccoop=self.intrinsiccoop,pybind=True)
             for line in lines:
                 fh.write(line)
@@ -561,7 +561,14 @@ infiles=FileNames[\"mat*.in\"];\n
         parstring_nounderscore=parstring_underscore.replace('_','')
         parstring_nounderscore=parstring_nounderscore.strip(',')
         npars=len(parstring_nounderscore.split(','))
-        f.write('{%s}=Table[0,{i,1,%d}];\n'%(parstring_nounderscore,npars))
+        if not self.CG:
+            f.write('{%s}=Table[0,{i,1,%d}];\n'%(parstring_nounderscore,npars))
+        else:
+            pars_conf=auxfuncCG.get_parslist_atconf(self.c,self.N,intrinsiccoop=self.intrinsiccoop,samesites=self.samesites)
+            pars_conf_l=pars_conf.split(',')
+
+            for par in pars_conf_l:
+                f.write('%s=0;\n'%par.replace('_','U'))
         if additionallinespars is not None:
             f.write(additionallinespars)
         parstring_nounderscore_commas=["\"%s\""%x for x in parstring_nounderscore.split(',')]
@@ -579,7 +586,19 @@ WriteString[outf,StringRiffle[{\"pos\",\"rho\"},","],";", StringRiffle[parslists
 For[i =1,i<= Length[data], i++,
 {pos0, stp0}=data[[i]][[1;;2]];
 PLIST=data[[i]][[3;;]];
-{%s}=PLIST[[1;;Length[PLIST]]];\n"""%parstring_nounderscore)
+""")
+        if not self.CG:
+            f.write("{%s}=PLIST[[1;;Length[PLIST]]];\n"%parstring_nounderscore)
+        else:
+            parscgexpr,parscg=auxfuncCG.return_CGpars_expr(self.c,self.N,intrinsiccoop=self.intrinsiccoop)
+            f.write("{%s}=PLIST[[1;;Length[PLIST]]];\n"%pars_conf.replace('_','U'))
+            if self.samesites: #in this case need to go back to the extended names with the site at which binding is occurring
+                for cn in range(1,self.c+1): #for each conformation
+                    for site in range(1,self.N+1): #for each site
+                        name="KU%dU%d"%(cn,site)
+                        f.write('    %s=KU%d;\n'%(name,cn)) #this is just so that I can use same function for effective parameters in all cases
+            for i in range(len(parscgexpr)):
+                f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
         f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
         f.write("""
@@ -647,14 +666,32 @@ Close[outf];
         parstring_nounderscore=parstring_underscore.replace('_','')
         parstring_nounderscore=parstring_nounderscore.strip(',')
         npars=len(parstring_nounderscore.split(','))
-        f.write('{%s}=Table[0,{i,1,%d}];\n'%(parstring_nounderscore,npars))
+        if not self.CG:
+            f.write('{%s}=Table[0,{i,1,%d}];\n'%(parstring_nounderscore,npars))
+        else:
+            pars_conf=auxfuncCG.get_parslist_atconf(self.c,self.N,intrinsiccoop=self.intrinsiccoop,samesites=self.samesites)
+            pars_conf_l=pars_conf.split(',')
+            for par in pars_conf_l:
+                f.write('%s=0;\n'%par.replace('_','U'))
         if additionallinespars is not None:
             f.write(additionallinespars)
         f.write("""
 Print[\"Defined GRF\"];
 
 PLIST={};
-{%s}=PLIST[[1;;Length[PLIST]]];\n"""%parstring_nounderscore)
+""")
+        if not self.CG:
+            f.write("{%s}=PLIST[[1;;Length[PLIST]]];\n"%parstring_nounderscore)
+        else:
+            parscgexpr,parscg=auxfuncCG.return_CGpars_expr(self.c,self.N,intrinsiccoop=self.intrinsiccoop)
+            f.write("{%s}=PLIST[[1;;Length[PLIST]]];\n"%pars_conf.replace('_','U'))
+            if self.samesites: #in this case need to go back to the extended names with the site at which binding is occurring
+                for cn in range(1,self.c+1): #for each conformation
+                    for site in range(1,self.N+1): #for each site
+                        name="KU%dU%d"%(cn,site)
+                        f.write('    %s=KU%d;\n'%(name,cn)) #this is just so that I can use same function for effective parameters in all cases
+            for i in range(len(parscgexpr)):
+                f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
         f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
         f.write("""
