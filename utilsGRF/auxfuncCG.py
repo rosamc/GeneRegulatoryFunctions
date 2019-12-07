@@ -2,6 +2,12 @@ import numpy as np
 import itertools
 
 def get_omega_i_S(c,N,site,S,intrinsiccoop=False):
+    """Expression for omega_i_S, that is effective cooperativity for binding at site i (site), when sites in S are occupied. 
+    c: number of conformations.
+    N: number of binding sites.
+    S (list): sites occupied.
+    intrinsiccoop: True if cooperativity between binding at a given conformation is allowed.
+    """
     numerator=''    
     rho_S_den=''
     Kai0=''
@@ -72,6 +78,12 @@ def get_omega_i_S(c,N,site,S,intrinsiccoop=False):
     return [numerator, denominator]
 
 def write_effective_Ks0(c,N,intrinsiccoop=False,pybind=False):
+    """Expressions for effective binding at each of the sites, when nothing else is bound. 
+    c: number of conformations.
+    N: number of binding sites.
+    intrinsiccoop: True if cooperativity between binding at a given conformation is allowed (affects the writing notation only)
+    pybind: if True, returns expressions to write to cpp file, otherwise returns pythonic expressions.
+    """
     Knames=[]
     Niter=N+1
     lines=[]
@@ -116,7 +128,12 @@ def write_effective_Ks0(c,N,intrinsiccoop=False,pybind=False):
     return [Knames,lines]
 
 def write_effective_w(c,N,intrinsiccoop=False,pybind=False):
-    # effective cooperativities
+    """Expressions for effective binding at each of the sites, when nothing else is bound. 
+    c: number of conformations.
+    N: number of bind
+    intrinsiccoop: True if cooperativity between binding at a given conformation is allowed (affects the writing notation only)
+    pybind: if True, returns expressions to write to cpp file, otherwise returns pythonic expressions.
+    """
     wnames=[]
     lines=[]
     for site in range(1,N): #w_i_S
@@ -143,6 +160,13 @@ def write_effective_w(c,N,intrinsiccoop=False,pybind=False):
     return [wnames,lines]
 
 def get_parslist_atconf(c,N,intrinsiccoop=False,samesites=False):
+    """
+    Returns the parameter list corresponding to the binding at each site per conformation, and the transitions between conformations.
+    c: number of conformations.
+    N: number of binding sites.
+    intrinsiccoop: True if cooperativity between binding at a given conformation is allowed.
+    samesites: True if all the sites in a given conformation behave the same (same affinity).
+    """
     outstr=''
     if samesites:
         for cn in range(1,c+1): #for each conformation
@@ -187,6 +211,7 @@ def get_parslist_atconf(c,N,intrinsiccoop=False,samesites=False):
     return outstr.strip(',')
 
 def return_CGpars_expr(c,N,intrinsiccoop=False):
+    """function to return parslist and expressions of coarse-grained parameters in terms of the parameters for binding at each conformation and the transition between them."""
     effK,lines1=write_effective_Ks0(c,N,intrinsiccoop=intrinsiccoop)
     effw,lines2=write_effective_w(c,N,intrinsiccoop=intrinsiccoop)
     lines=[]
