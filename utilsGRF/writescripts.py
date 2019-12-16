@@ -30,6 +30,7 @@ class PrepareFiles():
         self.coeffs_den_string=None
         self.numstring=None
         self.denstring=None
+        self.CG=False
        
     def simpify_num_den(self,numstr,denstr):
         """Given the strings with the mathematical expressions for numerator and denominator of the GRF (numstr, denstr), computes their corresponding sympy expressions. 
