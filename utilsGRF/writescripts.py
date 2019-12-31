@@ -89,26 +89,36 @@ class PrepareFiles():
         self.denstring=denexpr
         pat=re.compile("([\(\)0-9aA-zZ\./]*)\*(\([a-z0-9\+]+\))")
         patrho=re.compile("rho([0-9]+)")
-        degrees_rhos=[len(x) for x in self.coeffs_rhos]
+        degrees_rhos=[len(x) for x in self.coeffs_rhos] #degree of the polynomials corresponding to each rho
         for enum, expr in enumerate([numexpr,denexpr]):
-            all_coeffs_str=[[] for i in range(max(degrees_rhos))]
+            all_coeffs_str=[[] for i in range(max(degrees_rhos))] #prepare a list for each of the degrees
             terms=pat.findall(expr)
             for term in terms:
                 multiplier,expr=term
                 idxs=patrho.findall(expr)
-                for idx_ in idxs:
-                    idx=int(idx_)-1
-                    for i in range(degrees_rhos[idx]):
-                        all_coeffs_str[i].append(multiplier+"*coeffs_%s[%d]"%(idx_,i))
+                for idx_ in idxs: #each of the rhos
+                    idx=int(idx_)-1 #rho1 occupies position 0 so idx is 0,and so on
+                    for i in range(degrees_rhos[idx]): #for each of the terms, decide if coefficient is 0 or not
+                        #print('term',term,'expr',expr, 'idx_',idx_)
+                        #print('i',i,self.coeffs_rhos[idx], self.coeffs_rhos[idx][i], )
+                        if self.coeffs_rhos[idx][i]!=0:
+                            all_coeffs_str[i].append(multiplier+"*coeffs_%s[%d]"%(idx_,i))
             print(enum)
             if enum==0:
                 self.coeffs_num_fromrhos=[]
                 for coeff in all_coeffs_str:
-                    self.coeffs_num_fromrhos.append("+".join(coeff))
+                    #print('coeff num',coeff)
+                    if len(coeff)>0:
+                        self.coeffs_num_fromrhos.append("+".join(coeff))
+                    else:
+                        self.coeffs_num_fromrhos.append("0")
             else:
                 self.coeffs_den_fromrhos=[]
                 for coeff in all_coeffs_str:
-                    self.coeffs_den_fromrhos.append("+".join(coeff))
+                    if len(coeff)>0:
+                        self.coeffs_den_fromrhos.append("+".join(coeff))
+                    else:
+                        self.coeffs_den_fromrhos.append("0")
 
 
     def __write_header(self, fh):
