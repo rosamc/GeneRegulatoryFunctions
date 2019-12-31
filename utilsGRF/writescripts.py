@@ -578,13 +578,21 @@ infiles=FileNames[\"mat*.in\"];\n
         else:
             pars_conf=auxfuncCG.get_parslist_atconf(self.c,self.N,intrinsiccoop=self.intrinsiccoop,samesites=self.samesites)
             pars_conf_l=pars_conf.split(',')
+            parstring_conf_l_u=""
 
             for par in pars_conf_l:
-                f.write('%s=0;\n'%par.replace('_','U'))
+                parU=par.replace('_','U')
+                parstring_conf_l_u+=par+","
+                f.write('%s=0;\n'%parU)
+            parstring_conf_l_u.strip(",")
         if additionallinespars is not None:
             f.write(additionallinespars)
-        parstring_nounderscore_commas=["\"%s\""%x for x in parstring_nounderscore.split(',')]
-        f.write("parsliststring={%s};"%(",".join(parstring_nounderscore_commas)))
+        if not self.CG:
+            parstring_nounderscore_commas=["\"%s\""%x for x in parstring_nounderscore.split(',')]
+        else:
+            parstring_nounderscore_commas=["\"%s\""%x for x in parstring_conf_l_u.split(',')]
+        
+        f.write("parsliststring={%s};"%(",".join(parstring_nounderscore_commas))) #parameters searched
         f.write("""
 Print[\"Defined GRF\"];
 For[j=1,j<=Length[infiles],j++, 
