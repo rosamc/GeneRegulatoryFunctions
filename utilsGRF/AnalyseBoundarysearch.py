@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import BoundaryFinder as BF
 import json
+import glob
 
 
 def get_common_boundary(mats,matpars,col_ar=None,row_ar=None):
@@ -87,7 +88,7 @@ def read_settings(filename):
             extr=l.strip(',').split(':')[1]
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
-def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basename='', 
+def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
                            joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
@@ -96,15 +97,15 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
     flder: directory where the results to analyse are.
     basename: name given to the matrices/settings file when executing the search. 
     joinmats: if True, will return the common boundary and the dataframe with the corresponding points (via get_common_boundary function)
-    jid_num: jid of the parallel search in O2.
+    jid_num: (string) jid of the parallel search in O2.
     reference: in case there is a reference boundary that wants to be overlayed, pass here as a 2D array where each row is a point of (col, row) 
-    json: set to False only for backward compatibility, when settings and args dictionaries were not saved as json.
+    jsonf: set to False only for backward compatibility, when settings and args dictionaries were not saved as json.
     """
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
     pat_mat=re.compile('%s_([0-9]*).npy'%basename_mat)
     if printtocheck:
-        folder_tocheck=os.path.join(fldr,'tocheck') #here write output files to check with mathematica
+        folder_tocheck=os.path.join(fldr,'tocheck_%s'%basename) #here write output files to check with mathematica
         if not os.path.isdir(folder_tocheck):
             os.mkdir(folder_tocheck)
         print('folder to check',folder_tocheck)
@@ -113,9 +114,29 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
         matsparslist=[]
     
     outf=os.path.join(fldr,'final_results')
-    for i in range(njobs):
+    
+    if final is False:
+        folders=glob.glob(fldr+"/%s*"%basename) 
+    else:
+        folders=glob.glob(outf+"/mat_%s*.npy"%basename)
+        folders=[x.replace("_last.npy",'') for x in folders]
+    print(folders)
+    jids=[int(x.split("_")[-1]) for x in folders]
+    jids=sorted(jids)
+    
+    print(jids)
+    if njobs is None:
+        njobs=len(jids)
+    else:
+        if njobs!=len(jids): #sanity check
+            print("njobs does not coincide with the number of jobs found. Exiting...")
+            raise ValueError
+
+    for i_ in range(njobs):
+        i=jids[i_]
         if final is False:
             #In case the search did not finish due to maximum time allowed on cluster reached
+            
             outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
             mats=[f for f in os.listdir(outfolder) if basename_mat in f]
             iters=[int(pat_mat.findall(f)[0]) for f in mats]
@@ -148,8 +169,8 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
                 print('%d Not found '%i)
                 print(e)
                 cont=False
-        if i%4==0:
-            if i>0:
+        if i_%4==0:
+            if i_>0:
                 plt.tight_layout()
                 plt.show()
             fig,axes=plt.subplots(1,4,figsize=(20,8))
@@ -174,7 +195,7 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
             #print(row_ar)
             
 
-            ax=axes[i%4]
+            ax=axes[i_%4]
             ax.set_title('%d\n,p.par=%s,p.repl=%s\n niters_conv=%s,pt=%s,extr=%s\n %s\n converged=%s '%(i,prob_par,prob_replace,niters_conv,niters_conv_points,extr,timediff,converged))
             ax.imshow(mat,origin='lower',extent=[col_ar[0],col_ar[-1],row_ar[0],row_ar[-1]],cmap=plt.cm.Greys)
             if reference is not None:
@@ -196,7 +217,9 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
 
             if printtocheck:
                 #print x,y,parameters to check with mathematica
-                outfile=open(os.path.join(folder_tocheck,'%s_%d.in'%(basename_mat,i)),'w')
+                checkfile='%s_%d.in'%(basename_mat,i)
+                outfile=open(os.path.join(folder_tocheck,checkfile),'w')
+                print("writing file to check in %s"%(checkfile))
                 
                 for row in range(len(row_ar)):
                     for col in range(len(col_ar)):
@@ -205,11 +228,19 @@ def plot_boundaries_search(njobs=1,final=True, printtocheck=True, fldr='',basena
                             pars=list(map(str,mat_pars[row,col]))
                             outfile.write(str(col_ar[col])+','+str(row_ar[row])+','+','.join(pars)+'\n')
                 outfile.close()
+    plt.tight_layout()
+    plt.show()
     if printtocheck:
         print('folder to check with mathematica is', folder_tocheck)
     if joinmats:
-        return get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar)
+        if printtocheck:
+            return [get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar),folder_tocheck]
+        else:
+            return get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar)
     else:
-        return
+        if printtocheck:
+            return folder_tocheck
+        else:
+            return
 
 
