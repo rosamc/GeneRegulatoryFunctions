@@ -278,10 +278,11 @@ namespace py=pybind11;\n
                     end="+"
                 else:
                     end=";"
-                string_+="("+cxxcode(self.coeffs_rhos[i][j])+")"
-                string_+="*pow(valGRF,%d)%s"%(j,end)
+                if self.coeffs_rhos[i][j]!=0:
+                    string_+="("+cxxcode(self.coeffs_rhos[i][j])+")"
+                    string_+="*pow(valGRF,%d)%s"%(j,end)
 
-            fh.write("    T rho_%d=%s;\n"%(i+1,string_))
+            fh.write("    T rho_%d=%s\n"%(i+1,string_))
         
             
             
