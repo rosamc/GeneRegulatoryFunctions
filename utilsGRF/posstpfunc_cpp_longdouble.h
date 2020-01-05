@@ -12,7 +12,7 @@
 
 using namespace std;
 using namespace Eigen;
-//namespace py=pybind11;
+namespace py=pybind11;
 
 /* Function to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
 Rosa Martinez Corral. 06/11/2019
@@ -307,10 +307,10 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     vector<long double> derivativeden(nden+nden-1);
 
     get_fraction_derivative_coeffs(num,den,derivativenum,derivativeden);
-    //py::print("derivative coeffs");
+    py::print("derivative coeffs");
     remove_zeros_endvector(derivativenum); //,derivativenum);
     remove_zeros_endvector(derivativeden); //_,derivativeden);
-    //py::print("removed zeros");
+    py::print("removed zeros");
     
     nnum=derivativenum.size();
     nden=derivativeden.size();
@@ -328,18 +328,22 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     
 
     //second derivative
-    //py::print("going for second");
+    py::print("going for second");
     get_fraction_derivative_coeffs(derivativenum,derivativeden,derivative2num,derivative2den);
     
     //cout << "done second\n";
     remove_zeros_endvector(derivative2num);
     remove_zeros_endvector(derivative2den);
 
-    if ((derivative2num.size()==0)||(derivative2den.size()==0)){
+    if ((derivative2num.size()<2)||(derivative2den.size()==0)){
         return result; //unsuccessful
     }
 
-    //py::print("second");
+    py::print("second");
+    py::print("derivetive2num size",derivative2num.size());
+    if (derivative2num.size()==1){
+        py::print("size 1 derivative2num:",derivative2num[0]);
+    }
     
     
     vector<long double> critpoints;
@@ -349,7 +353,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     if (rootmethod=="aberth"){
     get_positive_real_roots_aberth(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
     }
-    //py::print("criticalpoints");
+    py::print("criticalpoints");
     
     //cout << "critpoints\n ";
     //for(i=0;i<critpoints.size();i++){
@@ -374,7 +378,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
         vector<long double> derivative3num(nnum+nden-2);
         vector<long double> derivative3den(nden+nden-1);
-        //py::print("original size", nnum+nden-2, derivative3num.size());
+        py::print("original size derivative3", nnum+nden-2, derivative3num.size());
 
 
 
@@ -382,8 +386,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
         remove_zeros_endvector(derivative3num);
         remove_zeros_endvector(derivative3den);
-        //py::print(derivative2num.size(), derivative2den.size());
-        //py::print("derivative3", derivative3num.size());
+        py::print(derivative2num.size(), derivative2den.size());
+        py::print("derivative3", derivative3num.size());
         
         if ((derivative3num.size()>0)&&(derivative3den.size()>0)){
 
@@ -403,11 +407,11 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 for (i=0;i<nden;i++){
                     xp=pow(critpoints[j],i);
                     den_sum+=derivative3den[i]*xp;
-                    //py::print("Adding to num",derivative3num[i],xp,num_sum);
-                    //py::print("Adding to den",derivative3den[i],xp,den_sum);
+                    py::print("Adding to num",derivative3num[i],xp,num_sum);
+                    py::print("Adding to den",derivative3den[i],xp,den_sum);
                 }
                 thirdderx=num_sum/den_sum;
-                //py::print("For point",critpoints[j],num_sum,den_sum,thirdderx);
+                py::print("thirdderx. For point",critpoints[j],num_sum,den_sum,thirdderx);
                 if (thirdderx<0){ //local maximum
 
                     num_sum=0;
@@ -421,8 +425,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                     for (i=0;i<nden;i++){
                         xp=pow(critpoints[j],(int)i);
                         den_sum+=derivativeden[i]*xp;
-                        //py::print("Adding to num",derivative3num[i],xp,num_sum);
-                        //py::print("Adding to den",derivative3den[i],xp,den_sum);
+                        py::print("Adding to num",derivative3num[i],xp,num_sum);
+                        py::print("Adding to den",derivative3den[i],xp,den_sum);
                     }
 
 
@@ -436,8 +440,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
                 result[1]=maxderv[i]; //*x05;
                 result[0]=xmaxderv[i]; ///x05;
-                //py::print("maxder",maxder);
-                //py::print("xmaxder",xmaxder);
+                py::print("maxder",maxderv[i]);
+                py::print("xmaxder",xmaxderv[i]);
                 //result[0]=xmaxder;
                 //result[1]=maxder;
 
@@ -451,7 +455,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
     //x05
 
-    
+    py::print("at the end");
+    py::print(result[0],result[1]);
     //printf("at the end: %g, %g\n", xmaxder, maxder);
     //vector<double> result = {xmaxder, maxder};
     
