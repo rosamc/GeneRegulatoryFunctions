@@ -335,7 +335,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     remove_zeros_endvector(derivative2num);
     remove_zeros_endvector(derivative2den);
 
-    if ((derivative2num.size()==0)||(derivative2den.size()==0)){
+    if ((derivative2num.size()<2)||(derivative2den.size()==0)){
         return result; //unsuccessful
     }
 
@@ -482,7 +482,7 @@ vector <double> compute_monotonic(vector<long double> &num, vector<long double> 
     remove_zeros_endvector(derivativenum); //,derivativenum);
     remove_zeros_endvector(derivativeden); //_,derivativeden);
 
-    if ((derivativenum.size()==0)||(derivativeden.size()==0)){
+    if ((derivativenum.size()<2)||(derivativeden.size()==0)){
         result = {-1.0};
         return result;
     }
