@@ -89,7 +89,7 @@ def read_settings(filename):
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
 def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
-                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True):
+                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True,septime=":"):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
     final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
@@ -157,8 +157,8 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
                     stdout=stdoutfh.readlines()[-2:]
                     stdoutfh.close()
-                    timediff=stdout[0].split(':')[1].strip()
-                    converged=stoud[1].strip()
+                    timediff=stdout[0].split(septime)[1].strip()
+                    converged=stdout[1].strip()
                 else:
                     print('no jid_num, timediff and converged unknown.')
                     timediff=''
