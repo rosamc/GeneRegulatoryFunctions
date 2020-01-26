@@ -117,7 +117,7 @@ def project_point(point,centroid,L=2,maxx=0,maxy=0):
 
 
 class BoundaryExplorer():
-    def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],nsites=0,row_ar=None,col_ar=None,seed=1,mat=None,mat_pars=None,tol_difference_pars=1e-8):
+    def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],cg0=-1,nsites=0,row_ar=None,col_ar=None,seed=1,mat=None,mat_pars=None,tol_difference_pars=1e-8):
         """This is a Class to found the boundaries of a model in 2D parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any 2D feature space. 
         By starting randomly from a few points, it will iteratively change them in various ways in order to find new points that expand the boundary.
         It uses a grid, and fills that grid. It outputs a matrix (mat) with 1 or 0 depending upon a point was found, and a matrix (mat_pars) with the corresponding parameter values. 
@@ -140,7 +140,7 @@ class BoundaryExplorer():
         - tol_difference_pars: minimum difference between two parameter sets that is relevant to consider that they are different. 
         -wpindices: for the polymerase model explored with activation effect, first and last index of the polymerase cooperativities. 
         -nsites: also for the polymerase model, number of binding sites
-        -
+        -cg0: index of the first parameter that corresponds to transition between two conformations, for the coarse grained models (allostery)
         """
 
 
@@ -152,6 +152,22 @@ class BoundaryExplorer():
         self.nrow=len(row_ar)
         self.ncol=len(col_ar)
         self.mchanges=None
+        self.cg0=cg0
+        if self.cg0>0:
+
+            #check that none of the parameters greater or equal to this one is in hte constraint dictionary with target. Not implemented
+            if constraints is not None:
+                for key in constraints.keys():
+                    if constraints[key]>=self.cg:
+                        subdict=constraints[paridx]
+                        subkeys=subdict.keys()
+                        if 'fixed' in subkeys:
+                            if subdict['fixed']>0:
+                                raise ValueError("Code is not prepared to handle fixed transitions between conformations while keeping conformations in the range.")
+                        if 'target' in subkeys:
+                                raise ValueError("Code is not prepared to handle transitions between conformations with a target while keeping conformations in the range.")
+
+
 
 
         if wpindices[0] is not None: #polymerase model specific
@@ -199,10 +215,13 @@ class BoundaryExplorer():
 
         if constraints is not None:
             for paridx in constraints.keys():
+                      
+
                 subdict=constraints[paridx]
                 subkeys=subdict.keys()
                 if 'fixed' in subkeys:
                     if subdict['fixed']>0:
+                        
                         if np.abs(subdict['min']-subdict['max'])>0.00000001:
                             print('Fixed parameter value wrongly defined for idx %d. Exiting.'%paridx)
                             sys.exit()
@@ -312,13 +331,26 @@ class BoundaryExplorer():
                         free=False
 
                 if free:
+                    if self.cg0>0 and pnum>=self.cg0:
+                            minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
+                            if pnum==self.cg0:
+                                pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
+                            else:
+                                prev=pars[pnum-1]
+                                if prev<1:
+                                    maxlog10=np.log10(maxval*prev)
+                                else:
+                                    minlog10=np.log10(minval*prev)
+                                pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
 
-                    if self.constraints[pnum][-1]>0: #fixed par
-                        pars[pnum]=self.constraints[pnum][0]
-                        #print('Fixing par', pnum, 'to ', pars[pnum])
                     else:
-                        minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
-                        pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
+
+                        if self.constraints[pnum][-1]>0: #fixed par
+                            pars[pnum]=self.constraints[pnum][0]
+                            #print('Fixing par', pnum, 'to ', pars[pnum])
+                        else:
+                            minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
+                            pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
 
             #Then go through the constraint ones with respect to a given target, which will have been set in the lines above
             pars_with_c=np.where(self.constraints[:,4]>-1)[0]
@@ -528,6 +560,15 @@ class BoundaryExplorer():
                     if not (( self.constraints[pnum][-1]>0) or (self.constraints[pnum][4]>-1)): #not a fixed parameter nor parameter whose value depends upon another
                         if np.random.uniform(0,1) < prob_par:
                             minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
+                            if self.cg0>0 and pnum>self.cg0:
+                                prev=pars[pnum-1]
+                                if prev<1:
+                                    #print("prev value is", prev, maxval)
+                                    maxval=(maxval*prev)
+                                    #print("new maxval", maxval)
+                                else:
+                                    minval=(minval*prev)
+                                
                             if uniform is True:
                             #if pnum in indices:
                                 newp=par*(10**np.random.uniform(fmin/factor,fmax/factor))                            
@@ -539,6 +580,19 @@ class BoundaryExplorer():
                             elif newp>maxval:
                                 newp=maxval
                             pars[pnum]=newp
+                        elif self.cg0>0 and pnum>self.cg0: #for the transitions between conformations for the coarse grained parameters, make sure that it is still in the range
+                            minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
+                            prev=pars[pnum-1]
+                            if prev<1:
+                                maxval=(maxval*prev)
+                            elif prev>1:
+                                minval=(minval*prev)
+                            if par>maxval:
+                                pars[pnum]=maxval
+                            elif par<minval:
+                                pars[pnum]=minval
+
+
 
             #then go through the constraint ones with respect to a target. 
             pars_with_c=np.where(self.constraints[:,4]>-1)[0] #Parameters which are referenced with respect to a target
