@@ -7,7 +7,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <iostream>
-#include "unipolynoboost.hpp"
+#include "polynomial.hpp"
 
 
 using namespace std;
@@ -20,28 +20,22 @@ Rosa Martinez Corral. 06/11/2019
 
 void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long double> &pos_real){
     
-    reverse(coeffsx05.begin(),coeffsx05.end()); //here first coefficient is larger degree
-    utils::UniPoly<long double> coeffsx05poly = utils::UniPoly<long double>("x",coeffsx05); //this is implemented by Chris in unipolynoboost
-
+    typedef Polynomial<double> PolyDouble;
+    double root;
+    //const long double imag_tol = 1e-20;
+    VectorXd coeffsm(coeffsx05.size());
     
-
-    // Get the half-maximal concentration of the GRF
-    std::pair<std::vector<mp_complex<long double> >, utils::SolverStats<long double> > solution_data;
-    const long double imag_tol = 1e-20;
-    solution_data = coeffsx05poly.roots("aberth", imag_tol);
-    auto roots_halfmax = solution_data.first;
-    long double x05;
-    mp_complex<long double> root;
-    //cout << "with Chris's method";
-
-    std::vector<long double>::size_type i;
-    for (i=0;i<roots_halfmax.size();i++){
-        root=roots_halfmax[i];
-        //cout<<root<<"\n";
-
-            if (abs(root.imag()) < imag_tol && root.real() > 0.0){
-                pos_real.push_back(root.real());
-            } 
+    for (unsigned i=0;i<coeffsx05.size();i++){
+        coeffsm[i]=(double) coeffsx05[i];
+        //py::print("coeff",i,coeffsm[i]);
+    }
+    PolyDouble p(coeffsm); 
+    //py::print("pcoeffs", p.coefficients());
+    Matrix<double, Dynamic, 1> roots = p.positiveRoots();
+    //py::print("new method, roots found", roots.size());
+    for (unsigned i=0;i<roots.size();i++){
+        //py::print("root",i,roots[i]);
+        pos_real.push_back(roots[i]);
     }
 }
 
