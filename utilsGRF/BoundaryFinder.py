@@ -336,11 +336,13 @@ class BoundaryExplorer():
                             if pnum==self.cg0:
                                 pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
                             else:
-                                prev=pars[pnum-1]
-                                if prev<1:
-                                    maxlog10=np.log10(maxval*prev)
-                                else:
-                                    minlog10=np.log10(minval*prev)
+                                allprev=pars[self.cg0:pnum]
+                                minprev=np.min(allprev)
+                                maxprev=np.max(allprev)
+                                if minprev<1:
+                                    maxlog10=np.log10(maxval*minprev)
+                                if maxprev>1:
+                                    minlog10=np.log10(minval*maxprev)
                                 pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
 
                     else:
@@ -561,13 +563,15 @@ class BoundaryExplorer():
                         if np.random.uniform(0,1) < prob_par:
                             minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
                             if self.cg0>0 and pnum>self.cg0:
-                                prev=pars[pnum-1]
-                                if prev<1:
+                                allprev=pars[self.cg0:pnum]
+                                minprev=np.min(allprev)
+                                maxprev=np.max(allprev)
+                                if minprev<1:
                                     #print("prev value is", prev, maxval)
-                                    maxval=(maxval*prev)
+                                    maxval=(maxval*minprev)
                                     #print("new maxval", maxval)
-                                else:
-                                    minval=(minval*prev)
+                                if maxprev>1:
+                                    minval=(minval*maxprev)
                                 
                             if uniform is True:
                             #if pnum in indices:
@@ -582,11 +586,15 @@ class BoundaryExplorer():
                             pars[pnum]=newp
                         elif self.cg0>0 and pnum>self.cg0: #for the transitions between conformations for the coarse grained parameters, make sure that it is still in the range
                             minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
-                            prev=pars[pnum-1]
-                            if prev<1:
-                                maxval=(maxval*prev)
-                            elif prev>1:
-                                minval=(minval*prev)
+                            allprev=pars[self.cg0:pnum]
+                            minprev=np.min(allprev)
+                            maxprev=np.max(allprev)
+                            if minprev<1:
+                                #print("prev value is", prev, maxval)
+                                maxval=(maxval*minprev)
+                                #print("new maxval", maxval)
+                            if maxprev>1:
+                                minval=(minval*maxprev)
                             if par>maxval:
                                 pars[pnum]=maxval
                             elif par<minval:
