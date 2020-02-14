@@ -89,7 +89,7 @@ def read_settings(filename):
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
 def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
-                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True,septime=":"):
+                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True,septime=":",getallpoints=False):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
     final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
@@ -112,7 +112,10 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     if joinmats:
         matslist=[]
         matsparslist=[]
-    
+    if getallpoints:
+        allpointslist=[]
+        allpointscolnames=['row','col','parameters']
+
     outf=os.path.join(fldr,'final_results')
     
     if final is False:
@@ -202,6 +205,14 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                 ax.scatter(reference[:,0],reference[:,1],color='r',s=4,alpha=0.5)
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
+
+            if getallpoints:
+                for row in range(len(row_ar)):
+                    for col in range(len(col_ar)):
+                        if mat[row,col]>0:
+                            allpointslist.append([row_ar[row],col_ar[col],mat_pars[row,col]])
+
+
             
             if joinmats or printtocheck:
                 B=BF.BoundaryExplorer(col_ar=col_ar,row_ar=row_ar,mat=mat)
@@ -232,15 +243,18 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     plt.show()
     if printtocheck:
         print('folder to check with mathematica is', folder_tocheck)
+
+    if getallpoints:
+        allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
+
+    returnar=[]
     if joinmats:
-        if printtocheck:
-            return [get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar),folder_tocheck]
-        else:
-            return get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar)
-    else:
-        if printtocheck:
-            return folder_tocheck
-        else:
-            return
+        returnar.append(get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar))
+    if printtocheck:
+        returnar.append(folder_tocheck)
+    if getallpoints:
+        returnar.append(allpdf)
+    return returnar
+    
 
 
