@@ -170,7 +170,7 @@ class BoundaryExplorer():
 
 
 
-        if wpindices[0] is not None: #polymerase model specific
+        if wpindices[0] is not None: #Equilibrium polymerase model specific
 
             self.sortedidxs=wpindices #first and last value of the chunk of parameters that correspond to wp
             self.polstrlist=[]
