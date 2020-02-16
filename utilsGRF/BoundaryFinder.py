@@ -117,7 +117,7 @@ def project_point(point,centroid,L=2,maxx=0,maxy=0):
 
 
 class BoundaryExplorer():
-    def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],cg0=-1,nsites=0,row_ar=None,col_ar=None,seed=1,mat=None,mat_pars=None,tol_difference_pars=1e-8):
+    def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],cg0=-1,nsites=0,row_ar=None,col_ar=None,seed=1,mat=None,mat_pars=None,tol_difference_pars=1e-8,ratios_indices=[None]):
         """This is a Class to found the boundaries of a model in 2D parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any 2D feature space. 
         By starting randomly from a few points, it will iteratively change them in various ways in order to find new points that expand the boundary.
         It uses a grid, and fills that grid. It outputs a matrix (mat) with 1 or 0 depending upon a point was found, and a matrix (mat_pars) with the corresponding parameter values. 
@@ -141,6 +141,12 @@ class BoundaryExplorer():
         -wpindices: for the polymerase model explored with activation effect, first and last index of the polymerase cooperativities. 
         -nsites: also for the polymerase model, number of binding sites
         -cg0: index of the first parameter that corresponds to transition between two conformations, for the coarse grained models (allostery)
+        -ratios_indices: to be used when we want to constrain certain label ratios with respect to other label ratios. 
+            List of lists of 3 elements:
+                First element contains the indices of forward and reverse transitions of the ratio of interest. 
+                Second element contains another list of lists. Each list contains the indices of the forward and reverse transitions of the ratios that serve as reference.
+                The third element contains the number of binding sites occupied for the transition of interest.
+
         """
 
 
@@ -206,6 +212,15 @@ class BoundaryExplorer():
             self.polstrlist=None
             self.previouswplist=None
 
+        if ratios_indices[0] is not None:
+            self.ratios_indices_lists=sorted(ratios_indices,key=lambda x: x[2])
+            #self.ratios_indices=[]
+
+            #for out in self.ratios_indices_lists:
+            #    self.ratios_indices.extend(out[0]) #add indices of numerator of parameters whose values depend upon previous ones
+        else:
+            self.ratios_indices_lists=[]
+
         constraint_mat=np.zeros((npars,12)) #0: min, 1: max, 2: log10min, 3: log10max,4: target idx, 5: fc down if target, 6: fc up if target,7: log10fcd, 8: log10fu, 9: smaller or equal than target, 10: greater or equal than target, 11: fixed (negative value: false. positive: true). 
         constraint_mat[:,0]=pars_limit[0]
         constraint_mat[:,1]=pars_limit[1]
@@ -260,6 +275,7 @@ class BoundaryExplorer():
                                 print('gt or lt is wrongly specified. Exiting')
                                 sys.exit()
 
+
         self.constraints=constraint_mat
         
         self.compute_x_y=compute_x_y_f
@@ -296,7 +312,48 @@ class BoundaryExplorer():
         self.indices_boundary_all=None
         
         self.nboundary=None #how many new points in the boundary at each iteration of extend_boundary
-        
+    
+    def get_num_den_fromratio(self,numerator,denominator,numval,denval,maxprevr):
+    	#randomly choose numerator or denominator to have a random value. This will avoid bias in either choosing one or another always
+        if np.random.uniform(0,1)<0.5:
+            #numerator as a function of the rest
+            minval,maxval, minlog10,maxlog10=self.constraints[numerator][0:4]
+            minvalnew=denval*maxprevr
+            if minvalnew>maxval:
+
+                #in this case put the numerator to the maxval and change denominator to a smaller number
+                numvalnew=maxval
+                minvald,maxvald, minlog10d,maxlog10d=self.constraints[denominator][0:4]
+                maxvald2=numvalnew/maxprevr
+                if maxvald2<=minvald:
+                	denvalnew=minvald
+                else:
+                    denvalnew=10**np.random.uniform(minlog10d,np.log10(maxvald2))
+                
+            else:
+            	numvalnew=10**np.random.uniform(np.log10(minvalnew),maxlog10)
+            	denvalnew=denval
+        else:
+        	#denominator as a function of the rest
+        	minvald,maxvald, minlog10d,maxlog10d=self.constraints[denominator][0:4]
+        	maxvalnew=numval/maxprevr
+        	if maxvalnew<minvald:
+        		#put denominator to minval and change numerator to a larger value
+        		denvalnew=minvald
+        		minval,maxval, minlog10,maxlog10=self.constraints[numerator][0:4]
+        		minval2=denvalnew*maxprevr
+        		if minval2>=maxval:
+        			numvalnew=minval2
+        		else:
+        			numvalnew=10**np.random.uniform(np.log10(minval2),maxlog10)
+        	else:
+        		denvalnew=10**np.random.uniform(minlog10d,np.log10(maxvalnew))
+        		numvalnew=numval
+        if (numvalnew/denvalnew)<maxprevr:
+            print(numvalnew,denvalnew, numvalnew/denvalnew, "is smaller than", maxprevr)
+            raise ValueError
+        else:
+        	return [numvalnew,denvalnew]
         
     def get_initial_points(self,ninitpoints):
         #Generate ninitpoints to begin with
@@ -325,7 +382,7 @@ class BoundaryExplorer():
 
 
                 else:
-                    if (self.constraints[pnum][4]<0): #does not depend upon target
+                    if (self.constraints[pnum][4]<0): # and pnum not in self.ratios_indices: #does not depend upon target
                         free=True
                     else:
                         free=False
@@ -350,7 +407,7 @@ class BoundaryExplorer():
                         if self.constraints[pnum][-1]>0: #fixed par
                             pars[pnum]=self.constraints[pnum][0]
                             #print('Fixing par', pnum, 'to ', pars[pnum])
-                        else:
+                        else: #if pnum not in self.ratios_indices:
                             minval,maxval, minlog10,maxlog10=self.constraints[pnum][0:4]
                             pars[pnum]=10**np.random.uniform(minlog10,maxlog10)
 
@@ -377,7 +434,8 @@ class BoundaryExplorer():
                         pars[pnum]=10**(np.random.uniform(min_,max_))
                     #print('target',targetvalue,'new',pars[pnum], targetvalue/pars[pnum])
             
-            #Finally go through the sortedindexs (polymerase model)
+            #then go through the cooperativities that have to be ordered
+            #Equilibrium polymerase model
             if self.polstrlist is not None:
                 for pnum, par in enumerate(pars):
                     if pnum>=self.sortedidxs[0] and pnum<=self.sortedidxs[1]:
@@ -394,7 +452,26 @@ class BoundaryExplorer():
 
                             pars[pnum]=newp
 
-                    
+            #Nonequilibrium polymerase model
+            if len(self.ratios_indices_lists)>0:
+                for out in self.ratios_indices_lists:
+                    numerator,denominator=out[0]
+                    #First I assign them a random value
+                    numval=pars[numerator]
+                    denval=pars[denominator]
+                    prev_rs=[]
+                    for r2 in out[1]:
+                        rval=pars[r2[0]]/pars[r2[1]]
+                        prev_rs.append(rval)
+                    maxprevr=max(prev_rs)
+                    #print(numerator,denominator,numval,denval,maxprevr)
+
+                    numvalnew,denvalnew=self.get_num_den_fromratio(numerator,denominator,numval,denval,maxprevr)
+
+                    pars[numerator]=numvalnew
+                    pars[denominator]=denvalnew
+
+
             p,s=self.compute_x_y(pars)
             #p,s=compute_pos_s_inputoutput(self.xrange,pars,self.ssfunc)
             if p is not None:
@@ -653,7 +730,7 @@ class BoundaryExplorer():
                     
                     pars[pnum]=newp
 
-            #finally go through the ones that are sorted
+            #Equilibrium polymerase model parameters
             if self.polstrlist is not None:
                 for pnum, par in enumerate(parset):
                     if pnum>=self.sortedidxs[0] and pnum<=self.sortedidxs[1]:
@@ -686,6 +763,24 @@ class BoundaryExplorer():
                                     newp=maxval
                             pars[pnum]=newp
                         #print('new value is',newp)
+            #Nonequilibrium pol model parameterrs
+            #Nonequilibrium polymerase model
+            if len(self.ratios_indices_lists)>0:
+                for out in self.ratios_indices_lists:
+                    numerator,denominator=out[0]
+                    #First I assign them a random value
+                    numval=pars[numerator]
+                    denval=pars[denominator]
+                    prev_rs=[]
+                    for r2 in out[1]:
+                        rval=pars[r2[0]]/pars[r2[1]]
+                        prev_rs.append(rval)
+                    maxprevr=max(prev_rs)
+
+                    numvalnew,denvalnew=self.get_num_den_fromratio(numerator,denominator,numval,denval,maxprevr)
+
+                    pars[numerator]=numvalnew
+                    pars[denominator]=denvalnew
 
             
             if np.any(np.abs(pars-parset)>self.tol_difference_pars):#if at least one parameter is different
@@ -1042,8 +1137,8 @@ class BoundaryExplorer():
 
 
     def extend_boundary(self,dofirstmutate=True,radius=1, maxradius=10, dopulltangents=False, theta=np.pi/4, dopullcentroids=True,
-    	prob_par=1,prob_replace=0,extr_uniform=[-1,1],L_project=10,tol_target=0.001,
-    	niters=100, niters_conv=10,niters_conv_points=10,niters_target=500, 
+        prob_par=1,prob_replace=0,extr_uniform=[-1,1],L_project=10,tol_target=0.001,
+        niters=100, niters_conv=10,niters_conv_points=10,niters_target=500, 
         niters_save=30, folder_save='./',name_save='out', 
         plotting=False,verbose=False):
 
