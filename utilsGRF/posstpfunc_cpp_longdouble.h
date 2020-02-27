@@ -205,7 +205,7 @@ void get_fraction_derivative_coeffs(vector<long double> &c1, vector<long double>
 
 }
 
-vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod){
+vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false){
 
 
     std::vector<long double>::size_type i, j, nnum, nden;
@@ -231,12 +231,13 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
         coeffsx05[i]=i1-i2;
     }
-    //py::print("num and den");
-    //cout << "Printing GRF num\n";
-    //for (i=0;i<max(nnum,nden);i++){
-    //    cout << num[i];
-    //    cout << "\n";
-    //}
+    if (verbose){
+    cout << "Printing GRF num\n";
+    for (i=0;i<max(nnum,nden);i++){
+        cout << num[i];
+        cout << "\n";
+    }
+    }
 
 
      //Find roots of coeffsx05, and keep the ones that are positive and real. Throw an error if this happens more than once. 
@@ -249,6 +250,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     if (rootmethod=="aberth"){
     get_positive_real_roots_aberth(coeffsx05, x05v);
     }
+    
     //py::print("roots x05");
     vector<double> result = {-1.0, -1.0};
     //double maxder=-1;
@@ -256,10 +258,18 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
 
     if (x05v.size()!=1){
+        if (verbose){
+        cout<<"x05 could not be computed.\n";
+        }
+  
         return result; //unsuccessful result
 
     }else{
+       
         x05=x05v[0];
+        if (verbose){
+        printf("x05: %Le\n",x05);
+        }
     }
     //py::print("x05 is ", x05);
     //printf("x05: %Le\n",x05);
@@ -328,8 +338,12 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     //cout << "done second\n";
     remove_zeros_endvector(derivative2num);
     remove_zeros_endvector(derivative2den);
-
+    
     if ((derivative2num.size()<2)||(derivative2den.size()==0)){
+        if (verbose){
+        cout << "unsuccessful derivative2, sizes are: ";
+        printf("num %d, den %d", derivative2num.size(),derivative2den.size());
+        }
         return result; //unsuccessful
     }
 
@@ -344,15 +358,24 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     get_positive_real_roots_aberth(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
     }
     //py::print("criticalpoints");
-    
-    //cout << "critpoints\n ";
-    //for(i=0;i<critpoints.size();i++){
-    //    printf("%Le,", critpoints[i]);
-    //}
-    //cout << "\n";
-    
+    if (verbose){
+    cout << "critpoints for derivative2num\n ";
+    if (critpoints.size()==0){
+        cout << "No criticalpoints found. The coefficients were \n";
+        for (i=0;i<derivative2num.size();i++){
+            cout << derivative2num[i];
+            cout << "\n";
+        }
+        cout << "end coeffs derivative2num\n";
+    }else{
+        for(i=0;i<critpoints.size();i++){
+            printf("%Le,", critpoints[i]);
+        }
+        cout << "\n";
+        }
+    }
 
-    
+
     //if (critpoints.size()==0){
     //    return result;
     //}else{
@@ -487,11 +510,11 @@ vector <double> compute_monotonic(vector<long double> &num, vector<long double> 
     get_positive_real_roots_aberth(derivativenum,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
 
     if (critpoints.size()>0){
-    	for (i=0;i<critpoints.size();i++){
+        for (i=0;i<critpoints.size();i++){
             result.push_back(critpoints[i]);
         }
     }else{
-    	result = {-2.0};
+        result = {-2.0};
         
     }
     return result;
