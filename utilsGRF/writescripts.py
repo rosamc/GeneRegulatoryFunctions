@@ -307,12 +307,13 @@ namespace py=pybind11;\n
             
         fh.write("}\n\n")
         
-    def __write_interface_posstp_simple(self,fh,funcname_varGRF,typestring):
+    def __write_interface_posstp_simple(self,fh,funcname_varGRF,typestring,computex05numerically=False):
         """write function which is called from python that computes position and steepness using the cpp code. 
         Position and steepness are calculated computing the critical points of the derivative of the GRF.
         Derivatives are computed by successively taking products of the coefficients of the polynomials with the exponents.
         In this case roots of polynomials to find x05 and critical points of derivative are computed using eigenvalues of companion matrix."""
-
+        if self.strategy=="pol" and computex05numerically is False:
+            raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
             fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
         else:
@@ -329,9 +330,45 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
+        if computex05numerically:
+            fh.write("""
+    int found = -1;
+    int nit=0;
+    double varGRFval=1000;
+    double GRF;
+    T numsum=0;
+    T densum=0;
+    double GRFprev=0;
+    double Gmax=-1;
+    while ((found<0) && (nit <10)){
+        numsum=0;
+        densum=0;
+        std::vector<T>::size_type i;
+        for (i=0;i<num.size();i++){
+        numsum+=num[i]*pow(varGRFval,(int)i);
+        }
+        for (i=0;i<den.size();i++){
+        densum+=den[i]*pow(varGRFval,(int)i);
+        }
+        GRF=numsum/densum;
+        if ((GRF>0.99)||(GRF-GRFprev<0.000001)){
+            found=1;
+            Gmax=GRF;
+        }else{
+            GRFprev=GRF;
+            varGRFval=varGRFval*10;
+            nit+=1;
+        }
+    }
+    if  (Gmax<0){
+    vector<double> result={-1.0,-1.0};
+    }else{
+    result=compute_pos_stp(num,den,"simple",false,Gmax*0.5);
+    }\n""")
+        else:
+            fh.write("    result=compute_pos_stp(num,den,\"simple\");\n")
 
         fh.write("""
-    result=compute_pos_stp(num,den,"simple");
     py::array_t<double> resultpy = py::array_t<double>(2);
     py::buffer_info bufresultpy = resultpy.request();
     double *ptrresultpy=(double *) bufresultpy.ptr;
@@ -342,10 +379,11 @@ namespace py=pybind11;\n
     }\n
 """)
         
-    def __write_interface_posstp_aberth(self,fh,funcname_varGRF,typestring):
+    def __write_interface_posstp_aberth(self,fh,funcname_varGRF,typestring,computex05numerically=False):
         """write function which is called from python that computes position and steepness using the cpp code. 
         In this case roots of polynomial are computed using aberth method implemented by Chris. Notice that this is much slower than using the "simple" option, but more accurate."""
-
+        if self.strategy=="pol" and computex05numerically is False:
+            raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
             fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
         else:
@@ -362,9 +400,45 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
+        if computex05numerically:
+            fh.write("""
+    int found = -1;
+    int nit=0;
+    double varGRFval=1000;
+    double GRF;
+    T numsum=0;
+    T densum=0;
+    double GRFprev=0;
+    double Gmax=-1;
+    while ((found<0) && (nit <10)){
+        numsum=0;
+        densum=0;
+        std::vector<T>::size_type i;
+        for (i=0;i<num.size();i++){
+        numsum+=num[i]*pow(varGRFval,(int)i);
+        }
+        for (i=0;i<den.size();i++){
+        densum+=den[i]*pow(varGRFval,(int)i);
+        }
+        GRF=numsum/densum;
+        if ((GRF>0.99)||(GRF-GRFprev<0.000001)){
+            found=1;
+            Gmax=GRF;
+        }else{
+            GRFprev=GRF;
+            varGRFval=varGRFval*10;
+            nit+=1;
+        }
+    }
+    if  (Gmax<0){
+    vector<double> result={-1.0,-1.0};
+    }else{
+    result=compute_pos_stp(num,den,"aberth",false,Gmax*0.5);
+    }\n""")
+        else:
+            fh.write("    result=compute_pos_stp(num,den,\"aberth\");\n")
 
         fh.write("""
-    result=compute_pos_stp(num,den,"aberth");
     py::array_t<double> resultpy = py::array_t<double>(2);
     py::buffer_info bufresultpy = resultpy.request();
     double *ptrresultpy=(double *) bufresultpy.ptr;
@@ -487,7 +561,7 @@ namespace py=pybind11;\n
 
         
         
-    def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None):
+    def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None, computex05numerically=False):
         """Writes .cpp file with GRF functions and computation of position and steepness. pybind is used to interface with them.
 
         """
@@ -502,8 +576,8 @@ namespace py=pybind11;\n
         self.__write_header(f)
         self.__write_GRF_coeffs(f,funcname_varGRF,typestring,additionallinespars) #coefficients of num and den of GRF with respect to input
         self.__write_rhos_coeffs(f,funcname_varGRF,typestring,additionallinespars) #rhos with respect to input
-        self.__write_interface_posstp_simple(f,funcname_varGRF,typestring) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
-        self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring) #function to call from python to compute position-steepness. roots are found using aberth method. 
+        self.__write_interface_posstp_simple(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
+        self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found using aberth method. 
         self.__write_interface_monotonic(f,funcname_varGRF,typestring) #function to call from python to assess monotonicity
         self.__write_interface_GRFatinput(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
         self.__write_interface_rhosatinput(f,funcname_varGRF,typestring) #function to call from python to compute rhos at given input value
