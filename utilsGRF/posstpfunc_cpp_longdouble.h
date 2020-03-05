@@ -205,17 +205,24 @@ void get_fraction_derivative_coeffs(vector<long double> &c1, vector<long double>
 
 }
 
-vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false){
-
-
+vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false, double halfmax=0.5){
+    if (verbose){
+    cout << "Printing halfmax\n";
+    cout<< halfmax;
+    cout << "\n";
+    }
     std::vector<long double>::size_type i, j, nnum, nden;
     long double i1;
     long double i2;
+    vector<long double> x05v;
+    long double x05;
+
+    
 
     nnum=num.size();
     nden=den.size(); 
     
-
+   
     vector<long double> coeffsx05(max(nnum,nden)); 
     for (i=0;i<max(nnum,nden);i++){
         if (i<nnum){
@@ -224,7 +231,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
             i1=0;
         }
         if (i<nden){
-            i2=0.5*den[i];
+            i2=halfmax*den[i];
         }else{
             i2=0;
         }
@@ -242,15 +249,15 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
 
      //Find roots of coeffsx05, and keep the ones that are positive and real. Throw an error if this happens more than once. 
     
-    long double x05;
-    vector<long double> x05v;
+    
+    
     if (rootmethod=="simple"){
     get_positive_real_roots(coeffsx05, x05v);
     }
     if (rootmethod=="aberth"){
     get_positive_real_roots_aberth(coeffsx05, x05v);
     }
-    
+  
     //py::print("roots x05");
     vector<double> result = {-1.0, -1.0};
     //double maxder=-1;
