@@ -361,7 +361,7 @@ namespace py=pybind11;\n
         }
     }
     if  (Gmax<0){
-    vector<double> result={-1.0,-1.0};
+    result={-1.0,-1.0};
     }else{
     result=compute_pos_stp(num,den,"simple",false,Gmax*0.5);
     }\n""")
@@ -431,7 +431,7 @@ namespace py=pybind11;\n
         }
     }
     if  (Gmax<0){
-    vector<double> result={-1.0,-1.0};
+    result={-1.0,-1.0};
     }else{
     result=compute_pos_stp(num,den,"aberth",false,Gmax*0.5);
     }\n""")
