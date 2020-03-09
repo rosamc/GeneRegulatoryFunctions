@@ -19,6 +19,9 @@ Rosa Martinez Corral. 06/11/2019
 */
 
 void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long double> &pos_real){
+
+    boost::random::mt19937 rng(1234567890);
+    boost::random::uniform_real_distribution<> dist(-std::acos(-1.0), std::acos(-1.0));
     
     typedef Polynomial<double> PolyDouble;
     double root;
@@ -31,11 +34,19 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     }
     PolyDouble p(coeffsm); 
     //py::print("pcoeffs", p.coefficients());
-    Matrix<double, Dynamic, 1> roots = p.positiveRoots();
+    //Matrix<double, Dynamic, 1> roots = p.positiveRoots();
     //py::print("new method, roots found", roots.size());
-    for (unsigned i=0;i<roots.size();i++){
-        //py::print("root",i,roots[i]);
-        pos_real.push_back(roots[i]);
+    std::vector<std::complex<double> > inits = biniInitialize(p.coefficients(), rng, dist);
+    Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits);
+    for (unsigned i=0;i<roots_computed.size();i++){
+        if (abs(roots_computed(i).imag()) < 1e-10){
+            //py::print("root",i,roots[i]);
+            
+            if (roots_computed(i).real()>1e-10){
+                pos_real.push_back(roots_computed(i).real());
+
+            }
+        }
     }
 }
 
@@ -210,6 +221,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     cout << "Printing halfmax\n";
     cout<< halfmax;
     cout << "\n";
+    cout.flush();
     }
     std::vector<long double>::size_type i, j, nnum, nden;
     long double i1;
@@ -243,6 +255,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     for (i=0;i<max(nnum,nden);i++){
         cout << num[i];
         cout << "\n";
+        cout.flush();
     }
     }
 
@@ -353,6 +366,26 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         }
         return result; //unsuccessful
     }
+    long double secondderx0;
+    if (derivative2den[0]>1e-15){
+            secondderx0=derivative2num[0]/derivative2den[0];
+        if ((secondderx0)<0){
+            if (verbose){
+              cout << "max derivative at 0\n ";
+              cout<<secondderx0;
+              cout<<"\n";
+              cout<<derivative2num[0];
+              cout<<"\n";
+              cout<<derivative2den[0];
+              cout<<"\n";
+            }
+            return result; //,ax derivative is in fact at 0
+        }
+    }else{
+        return result; // if I cannot check the second derivative at 0, then do not return any result
+    }
+
+
 
     //py::print("second");
     
@@ -390,8 +423,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     //    cout << "no critical points found\n";
 
     if (critpoints.size()>0){
-        
-        long double thirdderx;
+        long double mincritpoint;
+        long double thirdderx, thirdderx0;
         nnum=derivative2num.size();
         nden=derivative2den.size();
 
@@ -414,7 +447,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
             vector <long double> maxderv;
             vector <long double> xmaxderv;
 
-            
+                       
             for (j=0;j<critpoints.size();j++){
                 num_sum=0.0;
                 den_sum=0.0;
@@ -460,6 +493,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
                 result[1]=maxderv[i]; //*x05;
                 result[0]=xmaxderv[i]; ///x05;
+
                 //py::print("maxder",maxder);
                 //py::print("xmaxder",xmaxder);
                 //result[0]=xmaxder;
@@ -478,7 +512,10 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     
     //printf("at the end: %g, %g\n", xmaxder, maxder);
     //vector<double> result = {xmaxder, maxder};
-    
+    if (verbose){
+        cout << "returning\n";
+        cout.flush();
+    }
     return result;
 }
 
