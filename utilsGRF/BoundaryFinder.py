@@ -1140,7 +1140,7 @@ class BoundaryExplorer():
         prob_par=1,prob_replace=0,extr_uniform=[-1,1],L_project=10,tol_target=0.001,
         niters=100, niters_conv=10,niters_conv_points=10,niters_target=500, 
         niters_save=30, folder_save='./',name_save='out', 
-        plotting=False,verbose=False):
+        plotting=False,verbose=False,eraseintermediates=True):
 
 
         """Function that extends the current boundary. Arguments:
@@ -1175,12 +1175,24 @@ class BoundaryExplorer():
         self.nboundary=np.zeros(niters)
         self.extr_uniform=extr_uniform
         self.radius=radius
+        self.eraseintermediates=eraseintermediates
         while i < niters and self.converged== False:
             if i%niters_save ==0:
                 name='%s_%i'%(name_save,i)
-                np.save(os.path.join(folder_save,'mat_'+name+'.npy'),self.mat)
-                np.save(os.path.join(folder_save,'mat_pars_'+name+'.npy'),self.mat_pars)
-            
+                matname=os.path.join(folder_save,'mat_'+name+'.npy')
+                matparsname=os.path.join(folder_save,'mat_pars_'+name+'.npy')
+                np.save(matname,self.mat)
+                np.save(matparsname,self.mat_pars)
+                if self.eraseintermediates is True:
+                	if i>0:
+                		#delete previous
+                		os.remove(prevmatname)
+                		os.remove(prevmatparsname)
+                	prevmatname=matname
+                	prevmatparsname=matparsname
+
+
+            print(i,end=",",flush=True)
             #this could be made to depend upon the iteration
             fmin=self.extr_uniform[0]
             fmax=self.extr_uniform[1]
