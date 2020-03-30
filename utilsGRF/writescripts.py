@@ -121,7 +121,7 @@ class PrepareFiles():
                         self.coeffs_den_fromrhos.append("0")
 
 
-    def __write_header(self, fh):
+    def __write_header(self, fh,posstpfromGRF=False):
         """Writes includes of cpp file."""
         fh.write(    
 """
@@ -136,6 +136,11 @@ class PrepareFiles():
 #include <stdlib.h>
 #include <iostream>
 #include "posstpfunc_cpp_longdouble.h"
+""")
+        if posstpfromGRF:
+            fh.write("#include \"pos_stp_fromGRF.h\"\n")
+
+        fh.write("""
 using namespace std;
 using namespace Eigen;
 namespace py=pybind11;\n
@@ -378,6 +383,41 @@ namespace py=pybind11;\n
     return  resultpy;
     }\n
 """)
+
+    def __write_interface_posstp_fromGRF(self,fh,funcname_varGRF,typestring):
+        """write function which is called from python that computes position and steepness using the cpp code. 
+        Position and steepness are calculated by computing the GRF at multiple points and approximating the derivative from forward difference.
+        """
+        
+        if len(self.concvars)>1:
+            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, py::array_t<double> othervars, int npoints=500 ) {\n"%funcname_varGRF)
+        else:
+            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, int npoints=500 ) {\n"%funcname_varGRF)
+
+        fh.write("    typedef %s T;\n"%typestring)
+        fh.write("""
+    vector<T> num;
+    vector<T> den;
+    vector<double>result;
+""")
+
+        if len(self.concvars)>1:
+            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
+        else:
+            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
+        
+        fh.write("    result=compute_pos_stp_fromGRF(num,den,false,npoints);\n")
+
+        fh.write("""
+    py::array_t<double> resultpy = py::array_t<double>(2);
+    py::buffer_info bufresultpy = resultpy.request();
+    double *ptrresultpy=(double *) bufresultpy.ptr;
+    ptrresultpy[0]=result[0];
+    ptrresultpy[1]=result[1];
+
+    return  resultpy;
+    }\n
+""")
         
     def __write_interface_posstp_aberth(self,fh,funcname_varGRF,typestring,computex05numerically=False):
         """write function which is called from python that computes position and steepness using the cpp code. 
@@ -561,7 +601,8 @@ namespace py=pybind11;\n
 
         
         
-    def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None, computex05numerically=False):
+    def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None, 
+        computex05numerically=False, posstpfromGRF=False, posstpfromcritpoints=True):
         """Writes .cpp file with GRF functions and computation of position and steepness. pybind is used to interface with them.
 
         """
@@ -573,18 +614,27 @@ namespace py=pybind11;\n
         #print(coeffs_num)
         #print(coeffs_den)
         f=open(fname,'w')
-        self.__write_header(f)
+        self.__write_header(f,posstpfromGRF=posstpfromGRF)
+        
         self.__write_GRF_coeffs(f,funcname_varGRF,typestring,additionallinespars) #coefficients of num and den of GRF with respect to input
         self.__write_rhos_coeffs(f,funcname_varGRF,typestring,additionallinespars) #rhos with respect to input
-        self.__write_interface_posstp_simple(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
-        self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found using aberth method. 
+        if posstpfromcritpoints:
+            self.__write_interface_posstp_simple(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
+            self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found using aberth method. 
+        if posstpfromGRF:
+            self.__write_interface_posstp_fromGRF(f,funcname_varGRF,typestring)
         self.__write_interface_monotonic(f,funcname_varGRF,typestring) #function to call from python to assess monotonicity
         self.__write_interface_GRFatinput(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
         self.__write_interface_rhosatinput(f,funcname_varGRF,typestring) #function to call from python to compute rhos at given input value
           
         f.write("PYBIND11_MODULE(%s, m) {\n"%fname.split('/')[-1].replace('.cpp',''))
-        f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\");\n"%(funcname_varGRF, funcname_varGRF))
-        f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\");\n"%(funcname_varGRF, funcname_varGRF))
+        if posstpfromcritpoints:
+            f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\");\n"%(funcname_varGRF, funcname_varGRF))
+            f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\");\n"%(funcname_varGRF, funcname_varGRF))
+        if posstpfromGRF:
+            f.write("    m.def(\"interfaceps_fromGRF_%s\", &interfaceps_fromGRF_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\",\n"%(funcname_varGRF, funcname_varGRF))
+            f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"npoints\") = 500);\n")
+
         f.write("    m.def(\"interfacemonotonic_%s\", &interfacemonotonic_%s, \"A function which assessess whether GRF has a local maximum.\");\n"%(funcname_varGRF,funcname_varGRF))
         f.write("    m.def(\"interface_%s\", &interface_%s, \" A function that returns GRF at a given input value.\");\n"%(funcname_varGRF, funcname_varGRF))
         f.write("    m.def(\"interface_rhos_%s\", &interface_rhos_%s, \" A function that returns the rhos at a given input value.\");\n"%(funcname_varGRF, funcname_varGRF))
@@ -592,8 +642,12 @@ namespace py=pybind11;\n
         f.write("}\n")
         f.close()
         
-    def write_checkfile_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None):
-        print('writing mathematica file')
+    def write_checkfile_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, max1=True):
+        print('writing mathematica file. max1 set to', max1)
+        if self.strategy=="pol" and max1:
+            print("pol model may not asymptote to 1. Set max1 to False. Exiting...")
+            raise ValueError
+        
         if len(self.concvars)>1:
             if additionallinespars is None:
                 print("There is more than 1 input variable. Pass a string to additionallinespars argument with the values corresponding to those")
@@ -694,7 +748,11 @@ PLIST=data[[i]][[3;;]];
             for i in range(len(parscgexpr)):
                 f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
-        f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
+        if not max1:
+            f.write("maxX = Limit[f[x], x -> Infinity];\n")
+            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
+        else:
+            f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
         f.write("""
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
 maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
@@ -714,9 +772,12 @@ Close[outf];
 ]
         """)
         
-    def write_checksingleparset_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None):
+    def write_checksingleparset_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, max1=True):
         """Writes a mathematica file to check the calculation for a given parameter set. Adapted from code by Felix Wong."""
-        print('writing mathematica file')
+        print('writing mathematica file. max1 set to', max1)
+        if self.strategy=="pol" and max1:
+            print("pol model may not asymptote to 1. Set max1 to False. Exiting...")
+            raise ValueError
         if len(self.concvars)>1:
             if additionallinespars is None:
                 print("There is more than 1 input variable. Pass a string to additionallinespars argument with the values corresponding to those")
@@ -787,7 +848,11 @@ PLIST={};
             for i in range(len(parscgexpr)):
                 f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
-        f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
+        if self.strategy=="pol":
+            f.write("maxX = Limit[f[x], x -> Infinity];\n")
+            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
+        else:
+            f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
         f.write("""
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
 maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
