@@ -89,7 +89,8 @@ def read_settings(filename):
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
 def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
-                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',jsonf=True,septime=":",getallpoints=False):
+                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',
+                           jsonf=True,septime=":",getallpoints=False,unfinishedfolder=None):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
     final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
@@ -100,6 +101,8 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     jid_num: (string) jid of the parallel search in O2.
     reference: in case there is a reference boundary that wants to be overlayed, pass here as a 2D array where each row is a point of (col, row) 
     jsonf: set to False only for backward compatibility, when settings and args dictionaries were not saved as json.
+    getallpoints: get all the points, not just the boundary, as a dataframe.
+    unfinishedfolder: to be used with final=True in case not everything converged. Then this is the folderpath to a folder with the output folders were the intermediate results are saved.
     """
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
@@ -123,24 +126,45 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     else:
         folders=glob.glob(outf+"/mat_%s*.npy"%basename)
         folders=[x.replace("_last.npy",'') for x in folders]
-    print(folders)
+
     jids=[int(x.split("_")[-1]) for x in folders]
     jids=sorted(jids)
+
+
+    toprocess_unf=[]
+    if unfinishedfolder is not None:
+        #check if there is something here:
+        folders_unfinished=glob.glob(unfinishedfolder+"/%s*"%basename)
+        if len(folders_unfinished)>0:
+            toprocess_unf=[os.path.join(unfinishedfolder,f) for f in folders_unfinished]
+
     
     print(jids)
     if njobs is None:
-        njobs=len(jids)
+        njobs=len(jids)+len(toprocess_unf)
+
     else:
         if njobs!=len(jids): #sanity check
             print("njobs does not coincide with the number of jobs found. Exiting...")
             raise ValueError
+    
+    
 
     for i_ in range(njobs):
-        i=jids[i_]
-        if final is False:
+        if i_<len(jids):
+            i=jids[i_]
+            unfinished=False
+        else:
+            unfinished=True
+        if final is False or unfinished:
             #In case the search did not finish due to maximum time allowed on cluster reached
+            if final is False:
             
-            outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
+                outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
+            else:
+                outfolder=toprocess_unf[i_%len(jids)]
+                i=int(outfolder.split("_")[-1])
+
             mats=[f for f in os.listdir(outfolder) if basename_mat in f]
             iters=[int(pat_mat.findall(f)[0]) for f in mats]
             argsort=np.argsort(iters)
@@ -152,6 +176,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             timediff='-'
             converged='-'
             cont=True
+
         else:       
             try:
                 mat=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i)))
@@ -162,6 +187,9 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     stdoutfh.close()
                     timediff=stdout[0].split(septime)[1].strip()
                     converged=stdout[1].strip()
+                    if not converged in ["True","False"]: #if it was killed due to time limit, then it is only the iteration number. Discard.
+                    	converged="-"
+                    	timediff="-"
                 else:
                     print('no jid_num, timediff and converged unknown.')
                     timediff=''
@@ -199,7 +227,9 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             
 
             ax=axes[i_%4]
-            ax.set_title('%d\n,p.par=%s,p.repl=%s\n niters_conv=%s,pt=%s,extr=%s\n %s\n converged=%s '%(i,prob_par,prob_replace,niters_conv,niters_conv_points,extr,timediff,converged))
+            title='%d\n,p.par=%s,p.repl=%s\n niters_conv=%s,pt=%s,extr=%s\n %s, converged=%s '%(i,prob_par,prob_replace,niters_conv,niters_conv_points,extr,timediff,converged)
+            #print(title)
+            ax.set_title(title)
             ax.imshow(mat,origin='lower',extent=[col_ar[0],col_ar[-1],row_ar[0],row_ar[-1]],cmap=plt.cm.Greys)
             if reference is not None:
                 ax.scatter(reference[:,0],reference[:,1],color='r',s=4,alpha=0.5)
