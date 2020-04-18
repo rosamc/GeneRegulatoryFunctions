@@ -358,6 +358,8 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     //cout << "done second\n";
     remove_zeros_endvector(derivative2num);
     remove_zeros_endvector(derivative2den);
+
+   
     
     if ((derivative2num.size()<2)||(derivative2den.size()==0)){
         if (verbose){
@@ -366,12 +368,31 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         }
         return result; //unsuccessful
     }
-    long double secondderx0;
+
+     if (verbose){
+    cout << "Printing d2 num\n";
+    for (i=0;i<derivative2num.size();i++){
+        cout << i << "," << derivative2num[i];
+        cout << "\n";
+        cout.flush();
+    }
+
+    cout << "Printing d2 den\n";
+    for (i=0;i<derivative2den.size();i++){
+        cout << i << "," << derivative2den[i];
+        cout << "\n";
+        cout.flush();
+    }
+    }
+    
+    //After discussing with Felix on April 2020, we decided that if there was a max on the negative side it wouldn't matter, so discarding this.
+    /*long double secondderx0;
     if (derivative2den[0]>1e-15){
             secondderx0=derivative2num[0]/derivative2den[0];
         if ((secondderx0)<0){
             if (verbose){
-              cout << "max derivative at 0\n ";
+              cout << "max derivative at 0. Clarifying: \n ";
+              cout << derivative2num[0] << "," << derivative2den[0] << "\n" << endl;
               cout<<secondderx0;
               cout<<"\n";
               cout<<derivative2num[0];
@@ -383,7 +404,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         }
     }else{
         return result; // if I cannot check the second derivative at 0, then do not return any result
-    }
+    }*/
 
 
 
