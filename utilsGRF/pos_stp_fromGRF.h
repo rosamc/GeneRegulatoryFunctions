@@ -2,12 +2,15 @@
 #include <cmath>
 #include <stdlib.h>
 #include <iostream>
+#include <Eigen/SparseCore>
 #include "solvenullspace.h"
 
 using namespace std;
+using namespace Eigen;
 
 typedef double T;
 typedef Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > MatrixXd;
+typedef Eigen::SparseMatrix<T> SM;
 
 T GRF(vector<T>&num, vector<T>&den, double x){
 	T num_sum=0;
@@ -55,7 +58,7 @@ vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbos
     T GRF05=maxGRF*0.5;
     double x0=-15;
     double x1=-15;
-    double x5val=-15;
+    //double x5val=-15;
     T GRFval;
 
     //First compute GRF at points from 10^-15 to 10^20 (70 points total) to get the range of the GRF
@@ -120,36 +123,37 @@ vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbos
 
 }
 
-T GRFfromnullspace(Ref<MatrixXd> L_, Ref<MatrixXd> Lx, double xval, vector<int> &indices, vector<double> &coefficients, bool doublecheck=false){
-    //L is passed by copying it so I can modify its contents with the appropriate xval
-    //Lx should contain a 1 at each position for which L has to be multiplied by xval
-    if (L_.size()!=Lx.size()){
-        cout << "L and Lx do not have matching sizes.";
-        return -1.0;
+void insert_L_Lx_atval(SM& L, const std::vector<Eigen::Triplet<T>>& Lx, T xval){
+    Eigen::Triplet<T> trd;
+    for (int j=0;j<Lx.size();j++){
+        trd=Lx[j];
+        L.insert(trd.row(),trd.col())=trd.value()*xval;
     }
-    int n=Lx.rows(); //Lx is square so this is number of rows/columns
+}
+
+
+T GRFatX(const SM& L_, const std::vector<Eigen::Triplet<T>>& Lx, double xval, vector<int> &indices, vector<double> &coefficients, bool doublecheck=false){
+    //Lx should contain a 1 at each position for which L has to be multiplied by xval
+    
+    int n=L_.rows(); //L is square so this is number of rows/columns
     int i, j;
     T ss=0;
     T cs;
-    MatrixXd L;
-    L=L_.replicate(1,1);
-    for (i=0;i<n;i++){
-        for (j=0;j<n;j++){
-            if (Lx(i,j)>0){
-                L(i,j)=L_(i,j)*xval;
-            }
-        }
-    }
+    SM L;
+    L=SM(L_);
+    
+    insert_L_Lx_atval(L,Lx,xval);
+    //Eigen::SparseMatrix<T>
     
 
     //diagonals
-    for ( i=0;i<n;i++){ //for each col
-        cs=0;
-        for (j=0;j<n;j++){ //for each element
-            cs+=L(j,i);
+    for (int k=0; k<L.outerSize(); ++k) {
+         cs=0;
+        for(typename Eigen::SparseMatrix<T>::InnerIterator it (L,k); it; ++it){
+            cs+=it.value();
         }
-        L(i,i)=-cs;
-    }
+        L.insert(k,k)=-cs;
+    } 
 
     //cout << "After multiplying by x\n.";
     //cout << L;
@@ -160,10 +164,13 @@ T GRFfromnullspace(Ref<MatrixXd> L_, Ref<MatrixXd> Lx, double xval, vector<int> 
 
 }
 
-vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, Ref<MatrixXd> Lx, vector<int> &indices, vector <double> &coefficients, bool verbose=false, int npoints=1000, bool doublecheck=false){
+
+//vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, vector<Eigen::Triplet<int>>& Lx, vector<int> &indices, vector <double> &coefficients, bool verbose=false, int npoints=1000, bool doublecheck=false){
+vector<double> compute_pos_stp_fromGRF(const SM& L, const std::vector<Eigen::Triplet<T>>& Lx, vector<int> &indices, vector <double> &coefficients, bool verbose=false, int npoints=1000, bool doublecheck=false){
+
     //this function solves for the nullspace of the L to obtain the ss
-    //L: Laplacian with only parameter values. This is fixed.
-    //Lx: matrix with 1s at the positions that correspond to concentration dependent parameters
+    //L: Laplacian with only parameter values that do not depend on TF. This is fixed.
+    //triplets with parameter values that depend on TF.
     //indices: indices of the nullspace vector to use for the ss computation
     //coefficients: coefficient that multiplies each of rho_i (with i in indices) to compute the ss. 
     int Nmax=70;
@@ -174,8 +181,9 @@ vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, Ref<MatrixXd> Lx, vector
     double xval10;
     int i;
     vector<double>result={-1.0,-1.0};
+
     
-    T maxGRF=GRFfromnullspace(L,Lx,pow(10,20),indices,coefficients);
+    T maxGRF=GRFatX(L,Lx,pow(10,20),indices,coefficients);
     if (maxGRF<0){
         cout << "Failed when computing maxGRF\n";
         return result;
@@ -186,7 +194,7 @@ vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, Ref<MatrixXd> Lx, vector
     T GRF05=maxGRF*0.5;
     double x0=-15;
     double x1=-15;
-    double x5val=-15;
+    //double x5val=-15;
     T GRFval;
 
     //First compute GRF at points from 10^-15 to 10^20 (70 points total) to get the range of the GRF
@@ -194,7 +202,7 @@ vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, Ref<MatrixXd> Lx, vector
         xval10=pow(10,xval);
         xvecmax_[i]=xval;
         //xvecmax[i]=xval10;
-        GRFval=GRFfromnullspace(L,Lx,xval10,indices,coefficients,doublecheck);
+        GRFval=GRFatX(L,Lx,xval10,indices,coefficients,doublecheck);
         xval+=0.5;
         if (GRFval<0){
         cout << "Failed when computing GRFval, " << xval10 << "\n";
@@ -229,7 +237,7 @@ vector<double> compute_pos_stp_fromGRF(Ref<MatrixXd> L, Ref<MatrixXd> Lx, vector
             //xvec_[i]=x;
             xval10=pow(10,x);
             xvec[i]=xval10;
-            out[i]=GRFfromnullspace(L,Lx,xval10,indices,coefficients,doublecheck); // GRF(num,den,xval10);
+            out[i]=GRFatX(L,Lx,xval10,indices,coefficients,doublecheck); // GRF(num,den,xval10);
             if (out[i]<0){
                 cout << "Failed when computing out[i] at " << xval10 << "\n";
                 return result;
