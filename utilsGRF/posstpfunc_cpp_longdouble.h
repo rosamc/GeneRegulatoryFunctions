@@ -512,9 +512,17 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
             Niter=maxderv.size();
             if (Niter>0){
                 i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
-                result[1]=maxderv[i]; //*x05;
-                result[0]=xmaxderv[i]; ///x05;
+                
+                //need to check that max derivative is greater than the derivative at 0
+                double derivative_at_0=derivativenum[0]/derivativeden[0];
+                if (derivative_at_0<maxderv[i]){
+                    result[1]=maxderv[i]; //*x05;
+                    result[0]=xmaxderv[i]; ///x05;
+                }else{
+                    cout<<"Max at 0!\n";
+                }
 
+                
                 //py::print("maxder",maxder);
                 //py::print("xmaxder",xmaxder);
                 //result[0]=xmaxder;
