@@ -12,9 +12,10 @@ typedef double T;
 typedef Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > MatrixXd;
 typedef Eigen::SparseMatrix<T> SM;
 
-T GRF(vector<T>&num, vector<T>&den, double x){
-	T num_sum=0;
-	T den_sum=0;
+typedef long double T2;
+T2 GRF(vector<T2>&num, vector<T2>&den, double x){
+	T2 num_sum=0;
+	T2 den_sum=0;
 	int nnum=num.size();
 	int nden=den.size();
 	int i;
@@ -41,12 +42,12 @@ T GRF(vector<T>&num, vector<T>&den, double x){
 }
 
 
-vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbose=false, int npoints=1000){
+vector<double> compute_pos_stp_fromGRF(vector<T2>&num, vector<T2>&den, bool verbose=false, int npoints=1000){
     //this function uses the numerator and denominator of the ss, obtained from MTT
     int Nmax=70;
     vector<double> xvecmax_(Nmax);
     //vector<double> xvecmax(Nmax); //10^xvecmax_
-    vector<T> outmax(Nmax);
+    vector<T2> outmax(Nmax);
     double xval=-15;
     double xval10;
     int i;
@@ -59,7 +60,7 @@ vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbos
     double x0=-15;
     double x1=-15;
     //double x5val=-15;
-    T GRFval;
+    T2 GRFval;
 
     //First compute GRF at points from 10^-15 to 10^20 (70 points total) to get the range of the GRF
     for (i=0;i<Nmax;i++){
@@ -100,8 +101,8 @@ vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbos
     	}
 
     	double halfX=-1;
-    	T der=0;
-    	T maxder=0;
+    	T2 der=0;
+    	T2 maxder=0;
     	double xmaxder=0;
 
     	for (i=0;i<N-1;i++){
@@ -116,7 +117,19 @@ vector<double> compute_pos_stp_fromGRF(vector<T>&num, vector<T>&den, bool verbos
                 halfX=xvec[i];
             }
     	}
-        result={xmaxder/halfX,(double)maxder*halfX};
+        //compute derivative at 0. Careful, this is likely to run into accuracy issues.
+        T2 GRFat0=GRF(num,den,pow(10,-15));
+        T2 GRFat0dx=GRF(num,den,pow(10,-13));
+        T2 derat0=(GRFat0dx-GRFat0)/(0.99*pow(10,-13));
+
+        if (derat0<maxder){
+
+            result={(double)xmaxder/halfX,(double)maxder*halfX};
+        }else{
+            if (verbose){
+            cout << "Max at 0!\n";
+        }
+        }
         return result;
 
     }
@@ -262,7 +275,19 @@ vector<double> compute_pos_stp_fromGRF(const SM& L, const std::vector<Eigen::Tri
                 halfX=xvec[i];
             }
         }
-        result={xmaxder/halfX,(double)maxder*halfX};
+        T GRFat0=GRFatX(L,Lx,pow(10,-15),indices,coefficients,doublecheck);
+        T GRFat0dx=GRFatX(L,Lx,pow(10,-13),indices,coefficients,doublecheck);
+        T derat0=(GRFat0dx-GRFat0)/(0.99*pow(10,-13));
+
+        if (derat0<maxder){
+
+            result={(double)xmaxder/halfX,(double)maxder*halfX};
+        }else{
+            if (verbose){
+            cout << "Max at 0!\n";
+        }
+        }
+
         return result;
 
     }
