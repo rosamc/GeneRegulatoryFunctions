@@ -871,12 +871,13 @@ class PrepareFilesNoneq(PrepareFiles):
     - MTT folder: folder where MTT.py script is found.
     - graphbasename: name for the grpah files. Notice that it erases existing files with this basename."""
 
-    def __init__(self,varGRF='x',concvars=[''],parlist=[],edgelist=[],MTTfolder='',graphbasename='graph'):
+    def __init__(self,varGRF='x',concvars=[''],parlist=[],edgelist=[],MTTfolder='',graphbasename='graph',strategy="noneq"):
         super().__init__(varGRF=varGRF,concvars=concvars,parlist=parlist)
         self.edges=edgelist
         self.MTTfolder=MTTfolder
         self.graphbasename=graphbasename
         self.graphname=os.path.join(self.MTTfolder,self.graphbasename+'.txt')
+        self.strategy=strategy
         files=glob.glob(os.path.join(self.MTTfolder,self.graphbasename)+"*")
         for f in files:
             print('removing ',f)
