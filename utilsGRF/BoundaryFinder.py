@@ -192,16 +192,20 @@ class BoundaryExplorer():
                 ns=len(sites)
                 otheridxs=[]
                 if ns>1:
-                    if ns==2:
-                        combis=sites
-                    else:
-                        combis_=itertools.combinations(sites,ns-1)
-                        combis=[]
-                        for x in combis_:
-                            combis.append(','.join(sorted(x)))
+                    #what is commented was used to ensure the weakest condition for monotonicity originally identified
+                    #where w_p,s>w_p,s' for s'\in s
+                    #now it uses #s>#s'
+                    #if ns==2:
+                    #    combis=sites
+                    #else:
+                    #    combis_=itertools.combinations(sites,ns-1)
+                    #    combis=[]
+                    #    for x in combis_:
+                    #        combis.append(','.join(sorted(x)))
                     for j in range(0,i):
-                        sitesprev=self.polstrlist[j].split('p')[1]
-                        if sitesprev in combis:
+                        sitesprev=self.polstrlist[j].split('p')[1].split(",")
+                        if len(sitesprev)==ns-1:
+                        #if sitesprev in combis:
                             otheridxs.append(idx0+j) #has to be the index with respect to the whole parameter set
                 reference_list.append(list(set(otheridxs)))
 
