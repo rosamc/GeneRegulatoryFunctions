@@ -518,9 +518,11 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 if (derivative_at_0<maxderv[i]){
                     result[1]=maxderv[i]; //*x05;
                     result[0]=xmaxderv[i]; ///x05;
-                }//else{
-                    //cout<<"Max at 0!\n";
-                //}
+                }else{
+                    if (verbose){
+                    cout<<"Max at 0!\n";
+                    }
+                }
 
                 
                 //py::print("maxder",maxder);
