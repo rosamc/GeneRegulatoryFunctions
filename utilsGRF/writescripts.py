@@ -320,9 +320,9 @@ namespace py=pybind11;\n
         if self.strategy=="pol" and computex05numerically is False:
             raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false ) {\n"%funcname_varGRF)
         else:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, bool verbose=false ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
@@ -368,10 +368,10 @@ namespace py=pybind11;\n
     if  (Gmax<0){
     result={-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"simple",false,Gmax*0.5);
+    result=compute_pos_stp(num,den,"simple",verbose,Gmax*0.5);
     }\n""")
         else:
-            fh.write("    result=compute_pos_stp(num,den,\"simple\");\n")
+            fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(2);
@@ -390,9 +390,9 @@ namespace py=pybind11;\n
         """
         
         if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, py::array_t<double> othervars, int npoints=500 ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, int npoints=1000 ) {\n"%funcname_varGRF)
         else:
-            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, int npoints=500 ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, bool verbose=false, int npoints=1000 ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
@@ -406,7 +406,7 @@ namespace py=pybind11;\n
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         
-        fh.write("    result=compute_pos_stp_fromGRF(num,den,false,npoints);\n")
+        fh.write("    result=compute_pos_stp_fromGRF(num,den,verbose,npoints);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(2);
@@ -425,9 +425,9 @@ namespace py=pybind11;\n
         if self.strategy=="pol" and computex05numerically is False:
             raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false ) {\n"%funcname_varGRF)
         else:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, bool verbose=false ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
@@ -473,10 +473,10 @@ namespace py=pybind11;\n
     if  (Gmax<0){
     result={-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"aberth",false,Gmax*0.5);
+    result=compute_pos_stp(num,den,"aberth",verbose,Gmax*0.5);
     }\n""")
         else:
-            fh.write("    result=compute_pos_stp(num,den,\"aberth\");\n")
+            fh.write("    result=compute_pos_stp(num,den,\"aberth\",verbose);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(2);
@@ -629,11 +629,25 @@ namespace py=pybind11;\n
           
         f.write("PYBIND11_MODULE(%s, m) {\n"%fname.split('/')[-1].replace('.cpp',''))
         if posstpfromcritpoints:
-            f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\");\n"%(funcname_varGRF, funcname_varGRF))
-            f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\");\n"%(funcname_varGRF, funcname_varGRF))
+            f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\",\n"%(funcname_varGRF, funcname_varGRF))
+            if len(self.concvars)>1:
+                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false);\n")
+            else:
+                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false);\n")
+
+            f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\",\n"%(funcname_varGRF, funcname_varGRF))
+            if len(self.concvars)>1:
+                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false);\n")
+            else:
+                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false);\n")
+
         if posstpfromGRF:
-            f.write("    m.def(\"interfaceps_fromGRF_%s\", &interfaceps_fromGRF_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\",\n"%(funcname_varGRF, funcname_varGRF))
-            f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"npoints\") = 500);\n")
+            f.write("    m.def(\"interfaceps_fromGRF_%s\", &interfaceps_fromGRF_%s, \"A function which returns pos stp, approximates derivative from GRF valuesr.\",\n"%(funcname_varGRF, funcname_varGRF))
+            if len(self.concvars)>1:
+                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false, py::arg(\"npoints\") = 500);\n")
+            else:
+                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false, py::arg(\"npoints\") = 500);\n")
+
 
         f.write("    m.def(\"interfacemonotonic_%s\", &interfacemonotonic_%s, \"A function which assessess whether GRF has a local maximum.\");\n"%(funcname_varGRF,funcname_varGRF))
         f.write("    m.def(\"interface_%s\", &interface_%s, \" A function that returns GRF at a given input value.\");\n"%(funcname_varGRF, funcname_varGRF))
@@ -727,9 +741,11 @@ For[j=1,j<=Length[infiles],j++,
 infname=infiles[[j]];
 WriteString[\"stdout\",infname,\"\\n\"];
 outfname=StringJoin[StringSplit[infname,\".\"][[1]],\"_checked.out\"];
+outfname2=StringJoin[StringSplit[infname,\".\"][[1]],\"_discarded_maxD0.out\"];
 WriteString[\"stdout\",outfname,\"\\n\"];
 data=Import[infname,\"CSV\"];
 outf=OpenWrite[outfname];
+outf2=OpenWrite[outfname2];
 WriteString[outf,StringRiffle[{\"pos\",\"rho\"},","],";", StringRiffle[parsliststring,","],"\\n"];
 For[i =1,i<= Length[data], i++,
 {pos0, stp0}=data[[i]][[1;;2]];
@@ -756,8 +772,13 @@ PLIST=data[[i]][[3;;]];
         f.write("""
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
 maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
+maxY=Append[maxY,{yv2->0}];
 maxD = D[g[yv2],yv2]/.maxY;
 rho =Max[maxD]; (* TAKE MAX GLOBAL DERIVATIVE *)
+If [rho == D[g[yv2], yv2] /. {yv2 -> 0}, 
+WriteString["stdout",i, "maxat0,"];
+WriteString[outf2,StringRiffle[PLIST,","],"\\n"];,
+
 pos = maxY[[Position[maxD,Max[maxD]][[1]][[1]]]][[1]][[2]];(* TAKE POS CORRESPONDING TO MAX GLOBAL DERIVATIVE *)
 If[ pos-pos0<tolpos&&rho-stp0<tolstp,
 WriteString["stdout",i,","];
@@ -765,10 +786,11 @@ WriteString[outf,StringRiffle[{pos,rho},","],";", StringRiffle[PLIST,","],"\\n"]
 
 WriteString["stdout","\\n not correct"];
 WriteString["stdout",pos,,rho,,pos0,, stp0];
-
+]
 ]
 ]
 Close[outf];
+Close[outf2];
 ]
         """)
         
@@ -856,10 +878,16 @@ PLIST={};
         f.write("""
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
 maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
+maxY=Append[maxY,{yv2->0}];
 maxD = D[g[yv2],yv2]/.maxY;
 rho =Max[maxD]; (* TAKE MAX GLOBAL DERIVATIVE *)
+If [rho == D[g[yv2], yv2] /. {yv2 -> 0}, 
+WriteString["stdout","discarding GRF with max D at 0\\n"];
+WriteString["stdout",StringRiffle[PLIST,","],"\\n"];,
+
 pos = maxY[[Position[maxD,Max[maxD]][[1]][[1]]]][[1]][[2]];(* TAKE POS CORRESPONDING TO MAX GLOBAL DERIVATIVE *)
 {pos,rho}
+]
 Plot[g[yv2] /. {yv2 -> y0}, {y0, 0, 2}]
 
         """)
