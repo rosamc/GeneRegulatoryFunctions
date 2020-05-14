@@ -846,7 +846,7 @@ class BoundaryExplorer():
         plt.show()
 
     def savedf(self,name):
-        dfname=os.path.join(self.folder_save,'df_'+name+'.npy')
+        dfname=os.path.join(self.folder_save,'df_'+name+'.csv')
         self.dfpt.to_csv(dfname)
         #print("saved", dfname)
         if self.eraseintermediates is True:
