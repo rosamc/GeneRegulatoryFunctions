@@ -10,9 +10,9 @@ import math
 
 class BoundaryExplorer():
     def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],cg0=-1,nsites=0,arrays=None,seed=1,dfpt=None,tol_difference_pars=1e-8,ratios_indices=[None]):
-        """This is a Class to found the boundaries of a model in 2D parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any 2D feature space. 
+        """This is a Class to found the boundaries of a model in ND parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any ND feature space. For efficiency reasons, it should probably not be used for more than 5 or 6 dimensions.
         By starting randomly from a few points, it will iteratively change them in various ways in order to find new points that expand the boundary.
-        It uses a grid, and fills that grid. It outputs a matrix (mat) with 1 or 0 depending upon a point was found, and a matrix (mat_pars) with the corresponding parameter values. 
+        It uses a grid, and fills that grid. It outputs a dataframe with the results (or more than one to avoid excessive memory).
 
         compute_x_y_f: function that takes an array of parameter values as argument and returns the corresponding point in 2D space. 
         pars_limit: minumum and maximum values of the parameter values, in general.
