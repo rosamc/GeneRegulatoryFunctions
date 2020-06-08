@@ -953,8 +953,8 @@ class BoundaryExplorer():
                     self.plot_boundary('first m,i=%d'%i)
             
             if dopullcentroids:
-                print("pull")
-                print(len(self.dfpt))
+                #print("pull")
+                #print(len(self.dfpt))
 
                 for pti in range(len(self.dfpt)):
                     if pti%1000 ==0:
