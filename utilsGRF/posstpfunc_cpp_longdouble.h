@@ -18,6 +18,13 @@ using namespace Eigen;
 Rosa Martinez Corral. 06/11/2019
 */
 
+vector <long double> trim_zerocoeff(vector<long double> coeffs){
+	vector<long double>::const_iterator first = coeffs.begin() + 1;
+    vector<long double>::const_iterator last = coeffs.end();
+    vector<long double> newVec(first, last);
+    return newVec;
+}
+
 void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long double> &pos_real){
 
     boost::random::mt19937 rng(1234567890);
@@ -26,6 +33,19 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     typedef Polynomial<double> PolyDouble;
     double root;
     //const long double imag_tol = 1e-20;
+
+
+    //If the constant coefficient of the polynomial is 0, 
+    //e.g. 0+bx+ax^2=0
+    //then it is equivalent to x(b+ax)=0
+    //so it is equivalent to finding the roots of a polynomial of one degree less
+    //the initialization method only works when constant coefficient is not zero, so update
+    while (abs(coeffsx05[0])<1e-20){
+    	coeffsx05=trim_zerocoeff(coeffsx05);
+    	
+    }
+
+
     VectorXd coeffsm(coeffsx05.size());
     
     for (unsigned i=0;i<coeffsx05.size();i++){
@@ -37,6 +57,10 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     //Matrix<double, Dynamic, 1> roots = p.positiveRoots();
     //py::print("new method, roots found", roots.size());
     std::vector<std::complex<double> > inits = biniInitialize(p.coefficients(), rng, dist);
+    //py::print("inits found");
+    //for (int i=0;i<inits.size();i++){
+    //    py::print(inits[i]);
+    //}
     Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits);
     for (unsigned i=0;i<roots_computed.size();i++){
         if (abs(roots_computed(i).imag()) < 1e-10){
@@ -57,6 +81,7 @@ void get_positive_real_roots(vector<long double> &coeffs, vector<long double> &p
     //Computes eigenvalues of companion matrix. It is not always accurate.
 
     //vector<double>coeffs;
+
     std::vector<long double>::size_type Nc=coeffs.size();
     std::vector<long double>::size_type i,j, Nrows, lastidx;
     
