@@ -90,7 +90,7 @@ def read_settings(filename):
 
 def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
                            joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',
-                           jsonf=True,septime=":",getallpoints=False,unfinishedfolder=None):
+                           jsonf=True,septime=":",getallpoints=False,unfinishedfolder=None,difparslimit=False):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
     final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
@@ -103,6 +103,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     jsonf: set to False only for backward compatibility, when settings and args dictionaries were not saved as json.
     getallpoints: get all the points, not just the boundary, as a dataframe.
     unfinishedfolder: to be used with final=True in case not everything converged. Then this is the folderpath to a folder with the output folders were the intermediate results are saved.
+    difparslimit: set to True if not all jobs were run for the same parameter limits, in this case it will group boundaries by parslimit
     """
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
@@ -112,13 +113,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
         if not os.path.isdir(folder_tocheck):
             os.mkdir(folder_tocheck)
         print('folder to check',folder_tocheck)
-    if joinmats:
-        matslist=[]
-        matsparslist=[]
-    if getallpoints:
-        allpointslist=[]
-        allpointscolnames=['row','col','parameters']
-
+    
     outf=os.path.join(fldr,'final_results')
     
     if final is False:
@@ -129,6 +124,11 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
 
     jids=[int(x.split("_")[-1]) for x in folders]
     jids=sorted(jids)
+    print(jids)
+    if njobs is not None:
+        if njobs!=len(jids): #sanity check
+            print("njobs does not coincide with the number of jobs found. Exiting...")
+            raise ValueError
 
 
     toprocess_unf=[]
@@ -139,152 +139,194 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             toprocess_unf=[os.path.join(unfinishedfolder,f) for f in folders_unfinished]
 
     
-    print(jids)
-    if njobs is None:
-        njobs=len(jids)+len(toprocess_unf)
+    #make lists of jids that correspond to same parameter limits
+    group_jids=[]
+    if difparslimit:
+        if final is False:
+            raise("difparslimit is only prepared to deal with completed jobs")
+        elif jsonf is False:
+            raise("difparslimit is only prepared to deal with json settings")
 
-    else:
-        if njobs!=len(jids): #sanity check
-            print("njobs does not coincide with the number of jobs found. Exiting...")
-            raise ValueError
-    
-    
-
-    for i_ in range(njobs):
-        if i_<len(jids):
-            i=jids[i_]
-            unfinished=False
         else:
-            unfinished=True
-        if final is False or unfinished:
-            #In case the search did not finish due to maximum time allowed on cluster reached
-            if final is False:
-            
-                outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
-            else:
-                outfolder=toprocess_unf[i_%len(jids)]
-                i=int(outfolder.split("_")[-1])
-
-            mats=[f for f in os.listdir(outfolder) if basename_mat in f]
-            iters=[int(pat_mat.findall(f)[0]) for f in mats]
-            argsort=np.argsort(iters)
-            last_iter_m=iters[argsort[-1]]
-            last_iter=last_iter_m
-
-            mat=np.load(os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m)))
-            mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
-            timediff='-'
-            converged='-'
-            cont=True
-
-        else:       
-            try:
-                mat=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i)))
-                mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
-                if jid_num is not None:
-                    stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
-                    stdout=stdoutfh.readlines()[-2:]
-                    stdoutfh.close()
-                    timediff=stdout[0].split(septime)[1].strip()
-                    converged=stdout[1].strip()
-                    if not converged in ["True","False"]: #if it was killed due to time limit, then it is only the iteration number. Discard.
-                    	converged="-"
-                    	timediff="-"
-                else:
-                    print('no jid_num, timediff and converged unknown.')
-                    timediff=''
-                    converged=''
-                cont=True
+            corresponding_parslimit=[]
+            for jid in jids:
+                fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,jid))
                 
-            except FileNotFoundError as e:
-                print('%d Not found '%i)
-                print(e)
-                cont=False
-        if i_%4==0:
-            if i_>0:
-                plt.tight_layout()
-                plt.show()
-            fig,axes=plt.subplots(1,4,figsize=(20,8))
-        if cont:
-
-            fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,i))
-            if jsonf:
                 settings=json.load(open(fnamesett))
-                fnameargs=os.path.join(outf,'%s_%d.args'%(basename,i))
-                args=json.load(open(fnameargs))
-                col_ar=list(map(float,settings['col_ar'].split(',')))
-                row_ar=list(map(float,settings['row_ar'].split(',')))
-                prob_par=args['prob_par']
-                prob_replace=args['prob_replace']
-                niters_conv=args['niters_conv']
-                niters_conv_points=args['niters_conv_points']
-                extr=args['extr_uniform']
+                parslimit=",".join(list(map(str,settings["pars_limit"])))
+                corresponding_parslimit.append(parslimit)
+    
+            unique_parslimit=np.unique(corresponding_parslimit)
+            for parslimit in unique_parslimit:
+                idxs=[x for x in range(len(corresponding_parslimit)) if corresponding_parslimit[x]==parslimit]
+                print(parslimit,idxs)
+                jobs_p=[jids[i] for i in idxs]
+                group_jids.append(jobs_p)
+    else:
+        group_jids.append(jids)
+
+        #IDENTIFY THE ONES THAT SHARE SAME pars_limit and get the correspoding jids
+        
+
+
+    return_list=[]
+    for jids in group_jids:
+        print("Processing", jids)
+        if joinmats:
+            matslist=[]
+            matsparslist=[]
+        if getallpoints:
+            allpointslist=[]
+            allpointscolnames=['row','col','parameters']
+
+
+        if unfinishedfolder is not None:
+            njobs=len(jids)+len(toprocess_unf)
+            itemslist=range(njobs)
+        else:
+            itemslist=range(len(jids))
+
+        for i_ in itemslist:
+            if i_<len(jids):
+                i=jids[i_]
+                unfinished=False
             else:
-                row_ar, col_ar,prob_par,prob_replace,niters_conv,niters_conv_points,extr=read_settings(fnamesett)
+                unfinished=True
 
-
-            #print(row_ar)
-            
-
-            ax=axes[i_%4]
-            title='%d\n,p.par=%s,p.repl=%s\n niters_conv=%s,pt=%s,extr=%s\n %s, converged=%s '%(i,prob_par,prob_replace,niters_conv,niters_conv_points,extr,timediff,converged)
-            #print(title)
-            ax.set_title(title)
-            ax.imshow(mat,origin='lower',extent=[col_ar[0],col_ar[-1],row_ar[0],row_ar[-1]],cmap=plt.cm.Greys)
-            if reference is not None:
-                ax.scatter(reference[:,0],reference[:,1],color='r',s=4,alpha=0.5)
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
-
-            if getallpoints:
-                for row in range(len(row_ar)):
-                    for col in range(len(col_ar)):
-                        if mat[row,col]>0:
-                            allpointslist.append([row_ar[row],col_ar[col],mat_pars[row,col]])
-
-
-            
-            if joinmats or printtocheck:
-                B=BF.BoundaryExplorer(col_ar=col_ar,row_ar=row_ar,mat=mat)
-                B.find_boundary_points()
+            if final is False or unfinished:
+                #In case the search did not finish due to maximum time allowed on cluster reached
+                if final is False:
                 
-            if joinmats:
-                matslist.append(np.asarray(B.indices_boundary_all,dtype=int))
-                mat_pars_c=mat_pars.copy()
-                mat_pars_c[~B.indices_boundary_all]=0
+                    outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
+                else:
+                    outfolder=toprocess_unf[i_%len(jids)]
+                    i=int(outfolder.split("_")[-1])
+
+                mats=[f for f in os.listdir(outfolder) if basename_mat in f]
+                iters=[int(pat_mat.findall(f)[0]) for f in mats]
+                argsort=np.argsort(iters)
+                last_iter_m=iters[argsort[-1]]
+                last_iter=last_iter_m
+
+                mat=np.load(os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m)))
+                mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
+                timediff='-'
+                converged='-'
+                cont=True
+
+            else:       
+                try:
+                    mat=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i)))
+                    mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
+                    if jid_num is not None:
+                        stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
+                        stdout=stdoutfh.readlines()[-2:]
+                        stdoutfh.close()
+                        timediff=stdout[0].split(septime)[1].strip()
+                        converged=stdout[1].strip()
+                        if not converged in ["True","False"]: #if it was killed due to time limit, then it is only the iteration number. Discard.
+                        	converged="-"
+                        	timediff="-"
+                    else:
+                        print('no jid_num, timediff and converged unknown.')
+                        timediff=''
+                        converged=''
+                    cont=True
+                    
+                except FileNotFoundError as e:
+                    print('%d Not found '%i)
+                    print(e)
+                    cont=False
+            if i_%4==0:
+                if i_>0:
+                    plt.tight_layout()
+                    plt.show()
+                fig,axes=plt.subplots(1,4,figsize=(20,8))
+            if cont:
+
+                fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,i))
+                if jsonf:
+                    settings=json.load(open(fnamesett))
+                    fnameargs=os.path.join(outf,'%s_%d.args'%(basename,i))
+                    args=json.load(open(fnameargs))
+                    col_ar=list(map(float,settings['col_ar'].split(',')))
+                    row_ar=list(map(float,settings['row_ar'].split(',')))
+                    prob_par=args['prob_par']
+                    prob_replace=args['prob_replace']
+                    niters_conv=args['niters_conv']
+                    niters_conv_points=args['niters_conv_points']
+                    extr=args['extr_uniform']
+                else:
+                    row_ar, col_ar,prob_par,prob_replace,niters_conv,niters_conv_points,extr=read_settings(fnamesett)
+
+
+                #print(row_ar)
                 
-                matsparslist.append(mat_pars_c)
-            
 
-            if printtocheck:
-                #print x,y,parameters to check with mathematica
-                checkfile='%s_%d.in'%(basename_mat,i)
-                outfile=open(os.path.join(folder_tocheck,checkfile),'w')
-                print("writing file to check in %s"%(checkfile))
+                ax=axes[i_%4]
+                title='%d\n,p.par=%s,p.repl=%s\n niters_conv=%s,pt=%s,extr=%s\n %s, converged=%s '%(i,prob_par,prob_replace,niters_conv,niters_conv_points,extr,timediff,converged)
+                #print(title)
+                ax.set_title(title)
+                ax.imshow(mat,origin='lower',extent=[col_ar[0],col_ar[-1],row_ar[0],row_ar[-1]],cmap=plt.cm.Greys)
+                if reference is not None:
+                    ax.scatter(reference[:,0],reference[:,1],color='r',s=4,alpha=0.5)
+                ax.set_xlabel(xlabel)
+                ax.set_ylabel(ylabel)
+
+                if getallpoints:
+                    for row in range(len(row_ar)):
+                        for col in range(len(col_ar)):
+                            if mat[row,col]>0:
+                                allpointslist.append([row_ar[row],col_ar[col],mat_pars[row,col]])
+
+
                 
-                for row in range(len(row_ar)):
-                    for col in range(len(col_ar)):
-                        if B.indices_boundary_all[row,col]>0:
-                            ax.scatter(col_ar[col],row_ar[row],color='g',s=4,alpha=0.5)
-                            pars=list(map(str,mat_pars[row,col]))
-                            outfile.write(str(col_ar[col])+','+str(row_ar[row])+','+','.join(pars)+'\n')
-                outfile.close()
-    plt.tight_layout()
-    plt.show()
-    if printtocheck:
-        print('folder to check with mathematica is', folder_tocheck)
+                if joinmats or printtocheck:
+                    B=BF.BoundaryExplorer(col_ar=col_ar,row_ar=row_ar,mat=mat)
+                    B.find_boundary_points()
+                    
+                if joinmats:
+                    matslist.append(np.asarray(B.indices_boundary_all,dtype=int))
+                    mat_pars_c=mat_pars.copy()
+                    mat_pars_c[~B.indices_boundary_all]=0
+                    
+                    matsparslist.append(mat_pars_c)
+                
 
-    if getallpoints:
-        allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
+                if printtocheck:
+                    #print x,y,parameters to check with mathematica
+                    checkfile='%s_%d.in'%(basename_mat,i)
+                    outfile=open(os.path.join(folder_tocheck,checkfile),'w')
+                    print("writing file to check in %s"%(checkfile))
+                    
+                    for row in range(len(row_ar)):
+                        for col in range(len(col_ar)):
+                            if B.indices_boundary_all[row,col]>0:
+                                ax.scatter(col_ar[col],row_ar[row],color='g',s=4,alpha=0.5)
+                                pars=list(map(str,mat_pars[row,col]))
+                                outfile.write(str(col_ar[col])+','+str(row_ar[row])+','+','.join(pars)+'\n')
+                    outfile.close()
+        plt.tight_layout()
+        plt.show()
+        if printtocheck:
+            print('folder to check with mathematica is', folder_tocheck)
 
-    returnar=[]
-    if joinmats:
-        returnar.append(get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar))
-    if printtocheck:
-        returnar.append(folder_tocheck)
-    if getallpoints:
-        returnar.append(allpdf)
-    return returnar
+        if getallpoints:
+            allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
+
+        returnar=[]
+        if joinmats:
+            returnar.append(get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar))
+        if printtocheck:
+            returnar.append(folder_tocheck)
+        if getallpoints:
+            returnar.append(allpdf)
+        return_list.append(returnar)
+
+    if len(return_list)==1:#when all parameter have same pars_limit
+        return return_list[0]
+    else:#if different pars_limit
+        return return_list
     
 
 
