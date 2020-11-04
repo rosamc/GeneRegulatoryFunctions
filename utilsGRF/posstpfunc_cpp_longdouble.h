@@ -309,7 +309,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
   
         return result; //unsuccessful result
 
-    }elif(x05v.size()==1){
+    }else if(x05v.size()==1){
         x05=x05v[0];
     }else{
        
