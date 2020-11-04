@@ -40,7 +40,7 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     //then it is equivalent to x(b+ax)=0
     //so it is equivalent to finding the roots of a polynomial of one degree less
     //the initialization method only works when constant coefficient is not zero, so update
-    while (abs(coeffsx05[0])<1e-20){
+    while (abs(coeffsx05[0])<1e-25){
     	coeffsx05=trim_zerocoeff(coeffsx05);
     	
     }
@@ -61,7 +61,7 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     //for (int i=0;i<inits.size();i++){
     //    py::print(inits[i]);
     //}
-    Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits);
+    Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits); //(1000,1e-15,1e-15,20,inits)
     for (unsigned i=0;i<roots_computed.size();i++){
         if (abs(roots_computed(i).imag()) < 1e-10){
             //py::print("root",i,roots[i]);
@@ -302,7 +302,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     //double xmaxder=-1;
 
 
-    if (x05v.size()!=1){
+    if (x05v.size()==0){ //if there are two points of crossing the half max due to nonmonotonicity, take the smallest
         if (verbose){
         cout<<"x05 could not be computed.\n";
         }
@@ -489,6 +489,9 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         //py::print("derivative3", derivative3num.size());
         
         if ((derivative3num.size()>0)&&(derivative3den.size()>0)){
+            if (verbose){
+                cout << "Looking at derivative 3\n ";
+            }
 
             vector <long double> maxderv;
             vector <long double> xmaxderv;
@@ -510,6 +513,9 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                     //py::print("Adding to den",derivative3den[i],xp,den_sum);
                 }
                 thirdderx=num_sum/den_sum;
+                if (verbose){
+                    cout << "For critpoint" << critpoints[j] << "value is" << thirdderx;
+                }
                 //py::print("For point",critpoints[j],num_sum,den_sum,thirdderx);
                 if (thirdderx<0){ //local maximum
 
