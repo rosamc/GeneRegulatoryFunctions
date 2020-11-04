@@ -309,13 +309,17 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
   
         return result; //unsuccessful result
 
+    }elif(x05v.size()==1){
+        x05=x05v[0];
     }else{
        
-        x05=x05v[0];
-        if (verbose){
+        i=distance(x05v.begin(),min_element(x05v.begin(),x05v.end()));
+        x05=x05v[i];
+        
+    }
+    if (verbose){
         printf("x05: %Le\n",x05);
         }
-    }
     //py::print("x05 is ", x05);
     //printf("x05: %Le\n",x05);
     
