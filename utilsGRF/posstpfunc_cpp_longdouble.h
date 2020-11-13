@@ -40,35 +40,33 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     //then it is equivalent to x(b+ax)=0
     //so it is equivalent to finding the roots of a polynomial of one degree less
     //the initialization method only works when constant coefficient is not zero, so update
-    while (abs(coeffsx05[0])<1e-25){
+    while ((abs(coeffsx05[0])<1e-25)&&(coeffsx05.size()>1)){
     	coeffsx05=trim_zerocoeff(coeffsx05);
-    	
     }
+    if (coeffsx05.size()>1){
+        VectorXd coeffsm(coeffsx05.size());
+        for (unsigned i=0;i<coeffsx05.size();i++){
+            coeffsm[i]=(double) coeffsx05[i];
+            //py::print("coeff",i,coeffsm[i]);
+        }
+        PolyDouble p(coeffsm); 
+        //py::print("pcoeffs", p.coefficients());
+        //Matrix<double, Dynamic, 1> roots = p.positiveRoots();
+        //py::print("new method, roots found", roots.size());
+        std::vector<std::complex<double> > inits = biniInitialize(p.coefficients(), rng, dist);
+        //py::print("inits found");
+        //for (int i=0;i<inits.size();i++){
+        //    py::print(inits[i]);
+        //}
+        Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits); //(1000,1e-15,1e-15,20,inits)
+        for (unsigned i=0;i<roots_computed.size();i++){
+            if (abs(roots_computed(i).imag()) < 1e-10){
+                //py::print("root",i,roots[i]);
+                
+                if (roots_computed(i).real()>1e-10){
+                    pos_real.push_back(roots_computed(i).real());
 
-
-    VectorXd coeffsm(coeffsx05.size());
-    
-    for (unsigned i=0;i<coeffsx05.size();i++){
-        coeffsm[i]=(double) coeffsx05[i];
-        //py::print("coeff",i,coeffsm[i]);
-    }
-    PolyDouble p(coeffsm); 
-    //py::print("pcoeffs", p.coefficients());
-    //Matrix<double, Dynamic, 1> roots = p.positiveRoots();
-    //py::print("new method, roots found", roots.size());
-    std::vector<std::complex<double> > inits = biniInitialize(p.coefficients(), rng, dist);
-    //py::print("inits found");
-    //for (int i=0;i<inits.size();i++){
-    //    py::print(inits[i]);
-    //}
-    Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits); //(1000,1e-15,1e-15,20,inits)
-    for (unsigned i=0;i<roots_computed.size();i++){
-        if (abs(roots_computed(i).imag()) < 1e-10){
-            //py::print("root",i,roots[i]);
-            
-            if (roots_computed(i).real()>1e-10){
-                pos_real.push_back(roots_computed(i).real());
-
+                }
             }
         }
     }
