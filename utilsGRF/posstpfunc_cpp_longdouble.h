@@ -8,10 +8,14 @@
 #include <stdlib.h>
 #include <iostream>
 #include "polynomial.hpp"
+#include <boost/lexical_cast.hpp>
+#include <fstream>
 
 
 using namespace std;
 using namespace Eigen;
+using boost::lexical_cast;
+using std::string;
 //namespace py=pybind11;
 
 /* Function to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
@@ -239,7 +243,7 @@ void get_fraction_derivative_coeffs(vector<long double> &c1, vector<long double>
 
 }
 
-vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false, double halfmax=0.5){
+vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false, double halfmax=0.5, bool writex05coeffs= false, string fnamecoeffs="filename.txt"){
     if (verbose){
     cout << "Printing halfmax\n";
     cout<< halfmax;
@@ -276,11 +280,15 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     if (verbose){
     cout << "Printing GRF num\n";
     for (i=0;i<max(nnum,nden);i++){
-        cout << num[i];
+        //cout << num[i];
+        cout << lexical_cast<string>(num[i]);
         cout << "\n";
         cout.flush();
     }
     }
+
+    
+
 
 
      //Find roots of coeffsx05, and keep the ones that are positive and real. Throw an error if this happens more than once. 
@@ -304,6 +312,16 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         if (verbose){
         cout<<"x05 could not be computed.\n";
         }
+        if (writex05coeffs){
+            ofstream MyFile(fnamecoeffs);
+            for (i=0;i<coeffsx05.size();i++){
+            //cout << num[i];
+            MyFile << lexical_cast<string>(coeffsx05[i]) << ",";
+            
+            }
+            MyFile << "-1" << "\n";
+            MyFile.close();
+        }
   
         return result; //unsuccessful result
 
@@ -318,6 +336,17 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     if (verbose){
         printf("x05: %Le\n",x05);
         }
+    if (writex05coeffs){
+        ofstream MyFile(fnamecoeffs);
+        for (i=0;i<coeffsx05.size();i++){
+        //cout << num[i];
+        MyFile << lexical_cast<string>(coeffsx05[i]) << ",";
+        
+        }
+        MyFile << x05 << "\n";
+        MyFile.close();
+    }
+
     //py::print("x05 is ", x05);
     //printf("x05: %Le\n",x05);
     
