@@ -303,7 +303,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     }
   
     //py::print("roots x05");
-    vector<double> result = {-1.0, -1.0};
+    vector<double> result = {-1.0, -1.0, -1.0}; //addint x05 as well
     //double maxder=-1;
     //double xmaxder=-1;
 
@@ -329,10 +329,13 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         x05=x05v[0];
     }else{
        
-        i=distance(x05v.begin(),min_element(x05v.begin(),x05v.end()));
-        x05=x05v[i];
+        //i=distance(x05v.begin(),min_element(x05v.begin(),x05v.end()));
+        //x05=x05v[i];
+        x05=*std::min_element(x05v.begin(),x05v.end());
         
     }
+    result[2]=x05;
+    
     if (verbose){
         printf("x05: %Le\n",x05);
         }
