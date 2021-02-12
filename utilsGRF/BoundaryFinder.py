@@ -164,8 +164,8 @@ class BoundaryExplorer():
             #check that none of the parameters greater or equal to this one is in hte constraint dictionary with target. Not implemented
             if constraints is not None:
                 for key in constraints.keys():
-                    if constraints[key]>=self.cg:
-                        subdict=constraints[paridx]
+                    if key>=self.cg0:
+                        subdict=constraints[key]
                         subkeys=subdict.keys()
                         if 'fixed' in subkeys:
                             if subdict['fixed']>0:
@@ -475,7 +475,9 @@ class BoundaryExplorer():
                     pars[numerator]=numvalnew
                     pars[denominator]=denvalnew
 
-
+            #print("testing pars")
+            #print(",".join(map(str,pars)))
+            #p=None
             p,s=self.compute_x_y(pars)
             #p,s=compute_pos_s_inputoutput(self.xrange,pars,self.ssfunc)
             if p is not None:
