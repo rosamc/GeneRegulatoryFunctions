@@ -977,18 +977,27 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         if 'P' in concvars and strategy != "pol":
             print("For Pol model strategy should be pol. Exiting...")
             raise ValueError
-        self.strategy=strategy #an, av, oom, pol
+        self.strategy=strategy #an, av, oom, pol, anyfi
         
     
         
-    def __get_rho(self, sites, sitep=None):
+    def __get_rho(self, sites, sitep=None,c=1):
         #product of labels from reference to node, such that labels are the bare constants and cooperativities with wij, i<j
         #sites is a string with the bound sites
         #sitep is the Pol site (should be the site with largest index)
+
         sites_=sites.split(',')
         if len(sites_)==1:
             if sitep is None:
-                rho='K%s * x**1'%(sites_[0])
+                if self.multiconf:
+                    prefix=""
+                    K='K_%d_'%c
+                    if c>1:
+                        prefix="l%d * "%c
+
+                    rho=prefix+'%s%s * x**1'%(K,sites_[0])
+                else:
+                    rho='K%s * x**1'%(sites_[0])
             else:
                 if sites_[0]==sitep:
                     rho='P'
@@ -996,13 +1005,24 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                     rho='K%s * x**1'%(sites_[0]) #the power to the 1 is used below for parsing
         else:
             rho=''
+            if self.multiconf:
+                prefix=""
+                if c>1:
+                    prefix="l%d * "%c
+                    rho=prefix
             if (sitep is None) or (sitep not in sites_):
                 niter=len(sites_)-1
                 for i in range(niter):
                     i1=sites_[i]
                     #if len(sites_[i+1:])>1:
                     i2=''.join(sites_[i+1:])
-                    rho+='K%s * w%s%s * '%(i1, i1,i2)
+                    if self.multiconf:
+                        prefix=""
+                        K='K_%d_'%c
+                        w='w_%d_'%c
+                        rho+='%s%s * %s%s%s * '%(K,i1,w, i1,i2)
+                    else:
+                        rho+='K%s * w%s%s * '%(i1, i1,i2)
             else:
                 niter=len(sites_)-2
                 for i in range(niter):
@@ -1017,7 +1037,10 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                 rho+='P * wp%s * x**%d'%(''.join(sites_[:-1]),ns)
             else:
                 ns=len(sites_)
-                rho+='K%s * x**%d'%(sites_[-1],ns)
+                if self.multiconf:
+                    rho+='K_%d_%s * x**%d'%(c,sites_[-1],ns)
+                else:
+                    rho+='K_%s * x**%d'%(sites_[-1],ns)
 
         return rho
     
@@ -1034,23 +1057,35 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         
         
         symbols_str=set() #to get parlist
-        self.all_rhos=['rho1=1'] #reference node
-        nrho=2
-        for i in range(Niter):
-            combis=itertools.combinations(np.arange(1,Niter),i)
-            for x in combis:
-                if len(x)>0:
-                    combistr=','.join(map(str,x))
-                    rho=self.__get_rho(combistr,sitep=sitep)
         
-                    self.all_rhos.append('rho%d=%s'%(nrho,rho))
-                    #print(nrho,rho)
-                    nrho+=1
-                    for word in rho.split(' '):
-                        symbols_str.add(word.replace('(','').replace(')','').replace('*','').replace('+',''))
+        nrho=2
+        if self.multiconf:
+            Niter_conf=self.c
+        else:
+            Niter_conf=1
+        for c in range(1,Niter_conf+1):
+            if c==1:
+                self.all_rhos=['rho1=1'] #reference node
+            else:
+                self.all_rhos.append('rho%d=l%d'%(nrho,c))
+                nrho+=1
+            for i in range(Niter):
+                combis=itertools.combinations(np.arange(1,Niter),i)
+                for x in combis:
+                    if len(x)>0:
+                        combistr=','.join(map(str,x))
+                        rho=self.__get_rho(combistr,sitep=sitep,c=c)
+            
+                        self.all_rhos.append('rho%d=%s'%(nrho,rho))
+                        #print(nrho,rho)
+                        nrho+=1
+                        for word in rho.split(' '):
+                            symbols_str.add(word.replace('(','').replace(')','').replace('*','').replace('+',''))
     
         #get parlist, sorted such that Ks are first, omegas are second and omegasP last
+        #as I am introducing the multiconf, I will put the "l" in terms of the omegasP
         
+        nrhos=len(self.all_rhos)
 
         symbols_str_sorted=[[],[],[]]
         for i in range(3):
@@ -1063,7 +1098,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                         if 'w' in s and not 'wp' in s:
                             symbols_str_sorted[i].append(s)
                     elif i==2:
-                        if 'wp' in s:
+                        if 'wp' in s or 'l' in s:
                             symbols_str_sorted[i].append(s)
         symbols_str_sorted_=[]
         for x in symbols_str_sorted:
@@ -1072,7 +1107,11 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             x.sort(key=lambda x:len(x))
             symbols_str_sorted_.extend(x)
         print(symbols_str_sorted_)
-        self.parlist=symbols_str_sorted_
+        if self.strategy=="anyfi":
+            list_fi=["f%d"%(i+1) for i in range(nrhos)]
+            self.parlist=list_fi+symbols_str_sorted_ #I am putting them at the beginning because the li need to go at the end so that they are appropriately treated when exploring
+        else:
+            self.parlist=symbols_str_sorted_
         print('parlist is', self.parlist)
         
         #get GRF
@@ -1100,8 +1139,16 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                     numstring+='rho%d+'%(i+1)
             numstring=numstring.strip('+')
             numstring+=')'
+        if self.strategy=="anyfi":
+            numstring=''
+            for i in range(nrhos):
+                #rho=self.all_rhos[i]
+                numstring+="(f%d)*(rho%d)+"%(i+1,i+1)
+            numstring=numstring.strip("+")
+
+
         denstring='1*('
-        for i in range(len(self.all_rhos)):
+        for i in range(nrhos):
             denstring+='rho%d+'%(i+1)
         denstring=denstring.strip('+')
         denstring+=')'
@@ -1128,6 +1175,29 @@ class PrepareFilesEqbindingmodels_CG(PrepareFilesEqbindingmodels):
             print("Intrinsiccoop and samesites are incompatible. Exiting...")
             raise ValueError
         self.CG=True
+        self.c=c
+        self.intrinsiccoop=intrinsiccoop
+        self.samesites=samesites
+
+class PrepareFilesEqbindingmodels_multiconf(PrepareFilesEqbindingmodels):
+
+    """It writes code for multiple conformations, detailing each node. Only implemented for simple ligand binding x, not P.
+    intrinsiccoop=True if intrinsiccoop is allowed at each conformation.
+    samesites=True if all sites in a conformation behave equally. 
+    If intrinsiccoop=False and samesites=False, then each site at each conformation has their own affinity, which is independent of the other occupied sites at that conformation."""
+
+    def __init__(self,varGRF='x',concvars=['x'], N=3, strategy='av', c=2, intrinsiccoop=False,samesites=False):
+        super().__init__(varGRF=varGRF,concvars=concvars,strategy=strategy,N=N)
+        if c<2:
+            print("multiconf should only be used if there are at least 2 conformations. Exiting...")
+            raise ValueError
+        if intrinsiccoop is True and samesites is True:
+            print("Intrinsiccoop and samesites are incompatible. Exiting...")
+            raise ValueError
+        if strategy=="pol":
+            print("strategy multiconf not implemented for pol model")
+            raise ValueError
+        self.multiconf=True
         self.c=c
         self.intrinsiccoop=intrinsiccoop
         self.samesites=samesites
