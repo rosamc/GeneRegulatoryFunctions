@@ -1,6 +1,7 @@
 Various scripts to numerically investigate gene regulatory functions building upon the work in this publication: "Estrada, Wong, DePace, Gunawardena, Information Integration and Energy Expenditure in Gene Regulation, Cell 166, 234-244, 2016". The authors define a measure to characterise the sharpness of an input-output Gene Regulatory Function in terms of 2 parameters: position and steepness. Here code is provided to write c++ code that can be invoked from python in order to compute position-steepness, the value of the gene regulatory function and other properties including whether it is monotonic or not.
 
-The examples folder contains examples for how to write and compile the code, and run the BoundaryFinder algorithm. 
+The examples folder contains examples for how to write and compile the code, and run the BoundaryFinder algorithm.
+Some updates may be needed as the code has changed recently. This will be added in the near future. 
  
 - writescripts.py (uses MTT.py to compute the spanning trees of a graph): writes the .cpp file required to then compile, as well as mathematica code.
 - posstpfunc_cpp_longdouble.h (requires polynomial code in https://github.com/kmnam/polynomials). c++ code that performs the calculations for position-steepness and nonmonotonicity
