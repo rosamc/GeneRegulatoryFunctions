@@ -6,11 +6,27 @@ import itertools
 import pandas as pd
 import math
 
-
+"""
+    Code to compute boundaries of a model in an ND feature space.
+    Copyright (C) <2021>  <Rosa Martinez Corral>
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    """
 
 class BoundaryExplorer():
     def __init__(self,compute_x_y_f=None,pars_limit=[1e-5,1e5],constraints=None,npars=0,wpindices=[None,None],cg0=-1,nsites=0,arrays=None,seed=1,dfpt=None,tol_difference_pars=1e-8,ratios_indices=[None]):
-        """This is a Class to found the boundaries of a model in ND parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any ND feature space. For efficiency reasons, it should probably not be used for more than 5 or 6 dimensions.
+        """This is a Class to found the boundaries of a model in ND parameter space. For historic reasons it uses position/steepness for the variable notation and so on, but it  works for any ND feature space. For efficiency reasons, it should probably not be used for more than 5 or 6 dimensions. As of now it is a very poor and nonefficient implementation but is helpful to get a rough idea of the model behaviour.
         By starting randomly from a few points, it will iteratively change them in various ways in order to find new points that expand the boundary.
         It uses a grid, and fills that grid. It outputs a dataframe with the results (or more than one to avoid excessive memory).
 

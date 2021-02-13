@@ -7,7 +7,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <iostream>
-#include "polynomial.hpp"
+#include <polynomial.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 
@@ -18,8 +18,22 @@ using boost::lexical_cast;
 using std::string;
 //namespace py=pybind11;
 
-/* Function to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
-Rosa Martinez Corral. 06/11/2019
+/* 
+    Code to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
+    Copyright (C) <2021>  <Rosa Martinez Corral>
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 */
 
 vector <long double> trim_zerocoeff(vector<long double> coeffs){
@@ -335,7 +349,7 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         
     }
     result[2]=x05;
-    
+
     if (verbose){
         printf("x05: %Le\n",x05);
         }
