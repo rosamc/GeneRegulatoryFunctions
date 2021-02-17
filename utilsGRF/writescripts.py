@@ -48,6 +48,7 @@ class PrepareFiles():
         self.numstring=None
         self.denstring=None
         self.CG=False
+        self.multiconf=False #multiple conformation model explicitly
        
     def simpify_num_den(self,numstr,denstr):
         """Given the strings with the mathematical expressions for numerator and denominator of the GRF (numstr, denstr), computes their corresponding sympy expressions. 
@@ -383,7 +384,7 @@ namespace py=pybind11;\n
         }
     }
     if  (Gmax<0){
-    result={-1.0,-1.0};
+    result={-1.0,-1.0,-1.0};
     }else{
     result=compute_pos_stp(num,den,"simple",verbose,Gmax*0.5);
     }\n""")
@@ -391,11 +392,12 @@ namespace py=pybind11;\n
             fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose);\n")
 
         fh.write("""
-    py::array_t<double> resultpy = py::array_t<double>(2);
+    py::array_t<double> resultpy = py::array_t<double>(3);
     py::buffer_info bufresultpy = resultpy.request();
     double *ptrresultpy=(double *) bufresultpy.ptr;
     ptrresultpy[0]=result[0];
     ptrresultpy[1]=result[1];
+    ptrresultpy[2]=result[2];
 
     return  resultpy;
     }\n
@@ -488,7 +490,7 @@ namespace py=pybind11;\n
         }
     }
     if  (Gmax<0){
-    result={-1.0,-1.0};
+    result={-1.0,-1.0,-1.0};
     }else{
     result=compute_pos_stp(num,den,"aberth",verbose,Gmax*0.5);
     }\n""")
@@ -496,11 +498,12 @@ namespace py=pybind11;\n
             fh.write("    result=compute_pos_stp(num,den,\"aberth\",verbose);\n")
 
         fh.write("""
-    py::array_t<double> resultpy = py::array_t<double>(2);
+    py::array_t<double> resultpy = py::array_t<double>(3);
     py::buffer_info bufresultpy = resultpy.request();
     double *ptrresultpy=(double *) bufresultpy.ptr;
     ptrresultpy[0]=result[0];
     ptrresultpy[1]=result[1];
+    ptrresultpy[2]=result[2];
 
     return  resultpy;
     }\n
@@ -1057,7 +1060,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                 if self.multiconf:
                     rho+='K_%d_%s * x**%d'%(c,sites_[-1],ns)
                 else:
-                    rho+='K_%s * x**%d'%(sites_[-1],ns)
+                    rho+='K%s * x**%d'%(sites_[-1],ns)
 
         return rho
     
