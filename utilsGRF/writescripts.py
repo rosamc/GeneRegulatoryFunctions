@@ -138,6 +138,10 @@ class PrepareFiles():
                     else:
                         self.coeffs_den_fromrhos.append("0")
 
+                #remove 1* so that there are less operations to be done
+                pat_one=re.compile(r"^1\*c")
+                self.coeffs_den_fromrhos=[re.sub(pat_one,"c",x).replace("+1*c","+c") for x in self.coeffs_den_fromrhos]
+
 
     def __write_header(self, fh,posstpfromGRF=False):
         """Writes includes of cpp file."""
@@ -355,38 +359,15 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
             fh.write("""
-    int found = -1;
-    int nit=0;
-    double varGRFval=1000;
-    double GRF;
-    T numsum=0;
-    T densum=0;
-    double GRFprev=0;
-    double Gmax=-1;
-    while ((found<0) && (nit <10)){
-        numsum=0;
-        densum=0;
-        std::vector<T>::size_type i;
-        for (i=0;i<num.size();i++){
-        numsum+=num[i]*pow(varGRFval,(int)i);
-        }
-        for (i=0;i<den.size();i++){
-        densum+=den[i]*pow(varGRFval,(int)i);
-        }
-        GRF=numsum/densum;
-        if ((GRF>0.99)||(GRF-GRFprev<0.000001)){
-            found=1;
-            Gmax=GRF;
-        }else{
-            GRFprev=GRF;
-            varGRFval=varGRFval*10;
-            nit+=1;
-        }
-    }
+    vector<double> min_max(2);
+    compute_min_maxGRF(parsar,min_max);
+    double Gmin=min_max[0];
+    double Gmax=min_max[1];
+    double midpoint=Gmin+0.5*(Gmax-Gmin);
     if  (Gmax<0){
     result={-1.0,-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"simple",verbose,Gmax*0.5);
+    result=compute_pos_stp(num,den,"simple",verbose,midpoint);
     }\n""")
         else:
             fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose);\n")
@@ -461,41 +442,22 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
             fh.write("""
-    int found = -1;
-    int nit=0;
-    double varGRFval=1000;
-    double GRF;
-    T numsum=0;
-    T densum=0;
-    double GRFprev=0;
-    double Gmax=-1;
-    while ((found<0) && (nit <10)){
-        numsum=0;
-        densum=0;
-        std::vector<T>::size_type i;
-        for (i=0;i<num.size();i++){
-        numsum+=num[i]*pow(varGRFval,(int)i);
-        }
-        for (i=0;i<den.size();i++){
-        densum+=den[i]*pow(varGRFval,(int)i);
-        }
-        GRF=numsum/densum;
-        if ((GRF>0.99)||(GRF-GRFprev<0.000001)){
-            found=1;
-            Gmax=GRF;
-        }else{
-            GRFprev=GRF;
-            varGRFval=varGRFval*10;
-            nit+=1;
-        }
-    }
+    vector<double> min_max(2);
+    compute_min_maxGRF(parsar,min_max);
+    double Gmin=min_max[0];
+    double Gmax=min_max[1];
+    double midpoint=Gmin+0.5*(Gmax-Gmin);
+    //py::print(Gmax);
+
+    
+    
     if  (Gmax<0){
     result={-1.0,-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"aberth",verbose,Gmax*0.5);
+    result=compute_pos_stp(num,den,"aberth",verbose,midpoint);
     }\n""")
         else:
-            fh.write("    result=compute_pos_stp(num,den,\"aberth\",verbose);\n")
+            fh.write("    result=compute_pos_stp(num,den,\"aberth\", verbose);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(3);
@@ -521,6 +483,7 @@ namespace py=pybind11;\n
         fh.write("""
     vector<T> num;
     vector<T> den;
+    double result;
     
 """)
 
@@ -530,19 +493,79 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
 
         fh.write("""
-    T numsum=0;
-    T densum=0;
-    std::vector<T>::size_type i;
-    for (i=0;i<num.size();i++){
-    numsum+=num[i]*pow(varGRFval,(int)i);
-    }
-    for (i=0;i<den.size();i++){
-    densum+=den[i]*pow(varGRFval,(int)i);
-    }
-    double result=numsum/densum;
+    result=GRFatxonly(num,den,varGRFval);
     return result;
-    }\n
+}\n
 """)
+
+    def __write_compute_min_maxGRF(self,fh,funcname_varGRF,typestring):
+        """Write function to compute min and max from GRF numerically"""
+        fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<double> &min_max){\n")
+        fh.write("    typedef %s T;\n"%typestring)
+        fh.write("""
+    vector<T> num;
+    vector<T> den;
+    
+    
+    auto parsarbuf=parsar.request();
+    double *pars=(double *) parsarbuf.ptr;
+""")
+        if len(self.concvars)>1:
+            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
+        else:
+            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
+            fh.write("""
+    double Gmax=-1;
+    double Gmin=1e20;
+
+    
+    int Nmax=2000;
+    double xvalmin=-20;
+    double xvalmax=20;
+    double step=(xvalmax-xvalmin)/Nmax;
+    vector<double> GRFvec(Nmax);
+    double xval;
+    double xval10;
+    double GRFval;
+    //double ymin,ymax;
+    
+        
+        
+    //compute min and max numerically
+    //I need to identify the min before the max. Otherwise it can be that the min is after the max and I think this is not what we want
+        
+    xval=xvalmin;
+    vector <double> GRFvalsvec(Nmax);
+    
+    for (int i=0;i<Nmax;i++){
+        xval10=pow(10,xval);
+        //xvecmax[i]=xval10;
+        GRFval=GRFatxonly(num,den,xval10);
+        GRFvalsvec[i]=GRFval;
+        xval+=step;
+        if (GRFval>Gmax){
+            Gmax=GRFval;
+        }
+        //if (GRFval<Gmin){
+        //    Gmin=GRFval;
+        //}
+    }
+
+    //now go over the function values, and pick the minimum as long as Gmax is not reached
+    //find where the max occurs
+    int idx=distance(GRFvalsvec.begin(),max_element(GRFvalsvec.begin(),GRFvalsvec.end()));
+    for (int i=0;i<idx;i++){
+        GRFval=GRFvalsvec[i];
+        if (GRFval<Gmin){
+           Gmin=GRFval;
+        }
+    }
+
+    min_max[0]=Gmin;
+    min_max[1]=Gmax;
+}\n
+""")
+
 
     def __write_interface_rhosatinput(self,fh,funcname_varGRF,typestring):
         """Write function which is called from python that computes the value of the rhos at a given input value."""
@@ -619,6 +642,28 @@ namespace py=pybind11;\n
     }\n
 """)
 
+    def __write_GRFatxonly(self,fh,typestring):
+        fh.write("double GRFatxonly(vector<long double>&num, vector<long double>&den, double varGRFval){")
+        fh.write("    typedef %s T;\n"%typestring)
+        fh.write("""
+    
+    T numsum=0;
+    T densum=0;
+    std::vector<T>::size_type i;
+    for (i=0;i<num.size();i++){
+        numsum+=num[i]*pow(varGRFval,(int)i);
+    }
+    for (i=0;i<den.size();i++){
+        densum+=den[i]*pow(varGRFval,(int)i);
+    }
+    double result=numsum/densum;
+    return result;
+    
+}
+
+
+""")
+
         
         
     def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None, 
@@ -638,14 +683,18 @@ namespace py=pybind11;\n
         
         self.__write_GRF_coeffs(f,funcname_varGRF,typestring,additionallinespars) #coefficients of num and den of GRF with respect to input
         self.__write_rhos_coeffs(f,funcname_varGRF,typestring,additionallinespars) #rhos with respect to input
+        self.__write_GRFatxonly(f,typestring)
+        self.__write_interface_GRFatinput(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
+        if computex05numerically:
+            self.__write_compute_min_maxGRF(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
+
         if posstpfromcritpoints:
             self.__write_interface_posstp_simple(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
             self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found using aberth method. 
         if posstpfromGRF:
             self.__write_interface_posstp_fromGRF(f,funcname_varGRF,typestring)
         self.__write_interface_monotonic(f,funcname_varGRF,typestring) #function to call from python to assess monotonicity
-        self.__write_interface_GRFatinput(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
-        self.__write_interface_rhosatinput(f,funcname_varGRF,typestring) #function to call from python to compute rhos at given input value
+        self.__write_interface_rhosatinput(f,funcname_varGRF,typestring) #compute min and max numerically in order to compute x05
           
         f.write("PYBIND11_MODULE(%s, m) {\n"%fname.split('/')[-1].replace('.cpp',''))
         if posstpfromcritpoints:
