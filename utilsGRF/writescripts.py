@@ -358,9 +358,13 @@ namespace py=pybind11;\n
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
+            fh.write("    vector<double> min_max(2);\n")
+            if len(self.concvars)>1:
+                fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
+            else:
+                fh.write("    compute_min_maxGRF(parsar,min_max);\n")
+    
             fh.write("""
-    vector<double> min_max(2);
-    compute_min_maxGRF(parsar,min_max);
     double Gmin=min_max[0];
     double Gmax=min_max[1];
     double midpoint=Gmin+0.5*(Gmax-Gmin);
@@ -441,9 +445,12 @@ namespace py=pybind11;\n
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
+            fh.write("    vector<double> min_max(2);\n")
+            if len(self.concvars)>1:
+                fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
+            else:
+                fh.write("    compute_min_maxGRF(parsar,min_max);\n")
             fh.write("""
-    vector<double> min_max(2);
-    compute_min_maxGRF(parsar,min_max);
     double Gmin=min_max[0];
     double Gmax=min_max[1];
     double midpoint=Gmin+0.5*(Gmax-Gmin);
@@ -500,7 +507,10 @@ namespace py=pybind11;\n
 
     def __write_compute_min_maxGRF(self,fh,funcname_varGRF,typestring):
         """Write function to compute min and max from GRF numerically"""
-        fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<double> &min_max){\n")
+        if len(self.concvars)>1:
+            fh.write("void compute_min_maxGRF(py::array_t<double> parsar,py::array_t<double> othervars, vector<double> &min_max){\n")
+        else:
+            fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<double> &min_max){\n")
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
     vector<T> num;
@@ -514,7 +524,7 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-            fh.write("""
+        fh.write("""
     double Gmax=-1;
     double Gmin=1e20;
 
