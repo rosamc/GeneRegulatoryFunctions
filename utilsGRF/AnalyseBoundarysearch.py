@@ -345,5 +345,115 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     else:#if different pars_limit
         return return_list
     
+def approximate_ps_python(pars,func=None,verbose=True,min_cutoff=0.05, max_cutoff=0.95):
+    """Func should compute the value of the GRF at a value x, taking as arguments the parameter vector and the x value.
+    min_cutoff, max_cutoff: thresholds used to define x domain. It is expected that function values go from less than the min_cutoff to more than the max_cutoff."""
+    
+    #first find the appropriate x domain
+    xvals=np.logspace(-20,20,200)
+    y=np.array([func(pars,x) for x in xvals])
+    if min(y)>min_cutoff or max(y)<max_cutoff:
+        return [None,None]
+    else:
+        idx1=np.where(y>0.05)[0][0]
+        idx2=np.where(y>0.95)[0][0]
+        x1=0.01*xvals[idx1]
+        x2=100*xvals[idx2]
+        y1=func(pars,x1)
+        y2=func(pars,x2)
+        
+        while y1>0.005:
+            x1=x1*0.01
+            y1=func(pars,x1)
+        while y2<0.999:
+            x2=x2*100
+            y2=func(pars,x2)
+        
+        #get 1000 log-spaced points and find x_05 to normalise
+        xvals=np.logspace(np.log10(x1),np.log10(x2),1000)
+        y=[func(pars,x) for x in xvals]
+        y=np.array(y)
+        max_=max(y)
+        argmax=np.argmax(y)
+        min_=min(y[0:argmax])
+        half=min_+((max_-min_)/2)
+        tolerance=max_/100
+        idx=np.where(np.abs(y-half)<tolerance)[0][0]
+        x05=xvals[idx]
+       
+        
+        #print("x05",x05,x05printed)
+        xvalsn=xvals*x05
+        #xvalsnprinted=xvals*x05printed
+        yn=[func(pars,x) for x in xvalsn]
+        ynmin=min(yn)
+        ynmax=max(yn)
 
+        #make sure it covers enough range of the function. this may not work for certain nonmonotonic functions
+        dif=np.diff(y)
+        if not np.all(dif>0):
+            if verbose:
+                print("The function seems not monotonic. Careful when selecting the ranges of the normalised function!")
+
+        #assuming that the minimum is towards the beginning, extend the small values
+        recompute=False
+        nit=0
+        if (ynmin-min_)>0.001 or (yn[0]-y[0])>0.001:
+            recompute=True
+            found=False
+            x1n=xvalsn[0]
+            while (not found) and nit<10: 
+                nit+=1
+                x1n=x1n*0.01
+                y1n=func(pars,x1n)
+                if (y1n-min_)<0.001 or (y1n-y[0])<0.001: 
+                    found=True
+            if nit==10:
+                if verbose:
+                    print("reached nit for min", xvals[0],y[0],min_, xvalsn[0],yn[0],ynmin, y1n)
+                    print(y1n-min_,y1n-y[0])
+                    print(",".join(map(str,pars)))
+                
+        else:
+            x1n=xvalsn[0]
+        
+        nit=0
+        if (max_-ynmax)>0.001 or (y[-1]-yn[-1])>0.001:
+            recompute=True
+            found=False
+            x2n=xvalsn[-1]
+            while (not found) and nit<10:
+                nit+=1
+                x2n=x2n*100
+                y2n=func(pars,x2n)
+                if (max_-y2n)<0.001 or (y[-1]-y2n)<0.001:
+                    found=True
+            if nit==10:
+                if verbose:
+                    print("reached nit for max", xvals[-1],yn[-1], ynmax, xvalsn[-1], y2n)
+                    print(y2n-min_,y2n-y[-1])
+                    print(",".join(map(str,pars)))
+        else:
+            x2n=xvalsn[-1]
+        if recompute:
+            xvalsn=np.logspace(np.log10(x1n),np.log10(x2n),1000)
+            xvals=xvalsn/x05
+            #y=[func(pars,x) for x in xvals]
+        
+        yn=[func(pars,x) for x in xvalsn]
+        if (min(yn)>0.1) or (max(yn)<0.9):
+            if verbose:
+                print("min and max should be checked")
+                print("min:", min(yn), "max:", max(yn))
+                print(",".join(map(str,pars)))
+                print()
+
+
+        dif=np.diff(yn)
+        dx=np.diff(xvals)
+        derivative=dif/dx
+        maxdif=np.argmax(derivative)
+        pos=xvals[maxdif]
+        stp=derivative[maxdif]
+        return [(pos,stp), [xvals,xvalsn,yn]]
 
