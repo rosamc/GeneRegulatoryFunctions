@@ -122,6 +122,9 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     unfinishedfolder: to be used with final=True in case not everything converged. Then this is the folderpath to a folder with the output folders were the intermediate results are saved.
     difparslimit: set to True if not all jobs were run for the same parameter limits, in this case it will group boundaries by parslimit
     """
+    if final is True and unfinishedfolder is not None:
+        print("final=True is incompatible with unfinishedfolder=True")
+        raise(ValueError)
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
     pat_mat=re.compile('%s_([0-9]*).npy'%basename_mat)
@@ -131,17 +134,21 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             os.mkdir(folder_tocheck)
         print('folder to check',folder_tocheck)
     
-    outf=os.path.join(fldr,'final_results')
+    
     
     if final is False:
         folders=glob.glob(fldr+"/%s*"%basename) 
     else:
+        outf=os.path.join(fldr,'final_results')
         folders=glob.glob(outf+"/mat_%s*.npy"%basename)
         folders=[x.replace("_last.npy",'') for x in folders]
 
-    jids=[int(x.split("_")[-1]) for x in folders]
-    jids=sorted(jids)
-    print(jids)
+    jids=np.array([int(x.split("_")[-1]) for x in folders])
+    argsort_jids=np.argsort(jids)
+    jids=jids[argsort_jids]
+    folders=np.array(folders)[argsort_jids]
+    #print(jids)
+    #print(folders)
     if njobs is not None:
         if njobs!=len(jids): #sanity check
             print("njobs does not coincide with the number of jobs found. Exiting...")
@@ -159,26 +166,35 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     #make lists of jids that correspond to same parameter limits
     group_jids=[]
     if difparslimit:
-        if final is False:
-            raise("difparslimit is only prepared to deal with completed jobs")
-        elif jsonf is False:
-            raise("difparslimit is only prepared to deal with json settings")
+        #if final is False:
+        #    raise("difparslimit is only prepared to deal with completed jobs")
+        if jsonf is False:
+            print("difparslimit is only prepared to deal with json settings")
+            raise(ValueError)
 
         else:
             corresponding_parslimit=[]
-            for jid in jids:
-                fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,jid))
+            if final is True:
                 
-                settings=json.load(open(fnamesett))
-                parslimit=",".join(list(map(str,settings["pars_limit"])))
-                corresponding_parslimit.append(parslimit)
-    
+                for jid in jids:
+                    fnamesett=os.path.join(outf,'%s_%d.sett'%(basename,jid))  
+                    settings=json.load(open(fnamesett))
+                    parslimit=",".join(list(map(str,settings["pars_limit"])))
+                    corresponding_parslimit.append(parslimit)
+            else:
+                for folder in folders:
+                    fnamesett=[x for x in os.listdir(folder) if x.endswith(".sett")][0]
+                    settings=json.load(open(os.path.join(folder,fnamesett)))
+                    parslimit=",".join(list(map(str,settings["pars_limit"])))
+                    corresponding_parslimit.append(parslimit)
+        
             unique_parslimit=np.unique(corresponding_parslimit)
             for parslimit in unique_parslimit:
                 idxs=[x for x in range(len(corresponding_parslimit)) if corresponding_parslimit[x]==parslimit]
-                print(parslimit,idxs)
+                #print(parslimit,idxs)
                 jobs_p=[jids[i] for i in idxs]
                 group_jids.append(jobs_p)
+
     else:
         group_jids.append(jids)
 
@@ -187,8 +203,8 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
 
 
     return_list=[]
-    for jids in group_jids:
-        print("Processing", jids)
+    for jids2 in group_jids:
+        print("Processing", jids2)
         if joinmats:
             matslist=[]
             matsparslist=[]
@@ -196,16 +212,15 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             allpointslist=[]
             allpointscolnames=['row','col','parameters']
 
-
         if unfinishedfolder is not None:
-            njobs=len(jids)+len(toprocess_unf)
+            njobs=len(jids2)+len(toprocess_unf)
             itemslist=range(njobs)
         else:
-            itemslist=range(len(jids))
+            itemslist=range(len(jids2))
 
         for i_ in itemslist:
-            if i_<len(jids):
-                i=jids[i_]
+            if i_<len(jids2):
+                i=jids2[i_]
                 unfinished=False
             else:
                 unfinished=True
@@ -213,9 +228,11 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             if final is False or unfinished:
                 #In case the search did not finish due to maximum time allowed on cluster reached
                 if final is False:
-                
-                    outfolder=os.path.join(fldr,basename+'_out_%d'%(i))
+                    folder=folders[np.where(jids==i)[0][0]] #get folder corresponding to that jid
+                    outfolder=os.path.join(fldr,folder)
+                    outf=outfolder
                 else:
+
                     outfolder=toprocess_unf[i_%len(jids)]
                     i=int(outfolder.split("_")[-1])
 
