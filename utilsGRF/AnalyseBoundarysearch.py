@@ -388,11 +388,12 @@ def approximate_ps_python(pars,func=None,additionalvar=None,verbose=True,min_cut
         x2=100*xvals[idx2]
         y1=func2(pars,additionalvar,x1)
         y2=func2(pars,additionalvar,x2)
-        
-        while y1>0.005:
+        ntrials=0
+        while y1>0.005 and ntrials<5:
             x1=x1*0.01
             y1=func2(pars,additionalvar,x1)
-        while y2<0.999:
+            ntrials+=1
+        while y2<0.99 and ntrials<5:
             x2=x2*100
             y2=func2(pars,additionalvar,x2)
         
@@ -406,17 +407,19 @@ def approximate_ps_python(pars,func=None,additionalvar=None,verbose=True,min_cut
         half=min_+((max_-min_)/2)
         tolerance=max_/100
         #print(min_,max_,tolerance)
-        try:
-            idx=np.where(np.abs(y-half)<tolerance)[0][0]
-        except:
-            if verbose:
-                print("increasing tolerance")
-            idx=np.where(np.abs(y-half)<tolerance*10)[0][0]
+        #try:
+        #idx=np.where(np.abs(y-half)<tolerance)[0][0]
+        idx=np.argmin(np.abs(y[0:argmax]-half))
+        #except:
+        #    if verbose:
+        #        print("increasing tolerance")
+        #    idx=np.where(np.abs(y-half)<tolerance*10)[0][0]
 
         x05=xvals[idx]
        
-        
-        #print("x05",x05,x05printed)
+        if verbose:
+            print("half", half)
+            print("x05",x05)
         xvalsn=xvals*x05
         #xvalsnprinted=xvals*x05printed
         yn=[func2(pars,additionalvar,x) for x in xvalsn]
@@ -489,5 +492,5 @@ def approximate_ps_python(pars,func=None,additionalvar=None,verbose=True,min_cut
         maxdif=np.argmax(derivative)
         pos=xvals[maxdif]
         stp=derivative[maxdif]
-        return [(pos,stp), [xvals,xvalsn,yn]]
+        return [(pos,stp), [xvals,xvalsn,yn], y]
 
