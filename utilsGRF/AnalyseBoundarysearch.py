@@ -123,7 +123,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     difparslimit: set to True if not all jobs were run for the same parameter limits, in this case it will group boundaries by parslimit
     """
     if final is True and unfinishedfolder is not None:
-        print("final=True is incompatible with unfinishedfolder=True")
+        print("final=True is incompatible with a value for unfinishedfolder")
         raise(ValueError)
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
