@@ -106,7 +106,7 @@ def read_settings(filename):
     return [np.array(row_ar), np.array(col_ar),prob_par,prob_replace,niters_conv,niters_conv_pt,extr]
 
 def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',basename='', 
-                           joinmats=True,jid_num=None, reference=None, xlabel='position', ylabel='steepness',
+                           joinmats=True,jid_num=None, jid_num2=None,reference=None, xlabel='position', ylabel='steepness',
                            jsonf=True,septime=":",getallpoints=False,unfinishedfolder=None,difparslimit=False):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
@@ -116,6 +116,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     basename: name given to the matrices/settings file when executing the search. 
     joinmats: if True, will return the common boundary and the dataframe with the corresponding points (via get_common_boundary function)
     jid_num: (string) jid of the parallel search in O2.
+    jid_num2: (string) jid of an additional parallel search in O2, in case the run needs to be continued.
     reference: in case there is a reference boundary that wants to be overlayed, pass here as a 2D array where each row is a point of (col, row) 
     jsonf: set to False only for backward compatibility, when settings and args dictionaries were not saved as json.
     getallpoints: get all the points, not just the boundary, as a dataframe.
@@ -254,13 +255,27 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
                     if jid_num is not None:
                         stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
-                        stdout=stdoutfh.readlines()[-2:]
-                        stdoutfh.close()
+                        lines=stdoutfh.readlines()
+                        if len(lines)>2:
+                            stdout=lines[-2:]
+                            stdoutfh.close()
+                        else:
+                            if jid_num2 is not None:
+                                stdoutfh.close()
+                                stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num2,i+1)),'r')
+                                lines=stdoutfh.readlines()
+                                if len(lines)>2:
+                                    stdout=lines[-2:]
+                                    stdoutfh.close()
+                                else:
+                                    print("Could not determine convergence and timediff for %d"%(i+1))
+                                    converged=None
+
                         timediff=stdout[0].split(septime)[1].strip()
                         converged=stdout[1].strip()
                         if not converged in ["True","False"]: #if it was killed due to time limit, then it is only the iteration number. Discard.
-                        	converged="-"
-                        	timediff="-"
+                            converged="-"
+                            timediff="-"
                     else:
                         print('no jid_num, timediff and converged unknown.')
                         timediff=''
@@ -380,7 +395,7 @@ def approximate_ps_python(pars,func=None,additionalvar=None,verbose=True,min_cut
     if min(y)>min_cutoff or max(y)<max_cutoff:
         print("returning None")
         #sys.exit()
-        return [None,None]
+        return [None,None,None]
     else:
         idx1=np.where(y>min_cutoff)[0][0]
         idx2=np.where(y>max_cutoff)[0][0]
