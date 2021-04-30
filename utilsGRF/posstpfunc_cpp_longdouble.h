@@ -81,7 +81,7 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
             if (abs(roots_computed(i).imag()) < 1e-10){
                 //py::print("root",i,roots[i]);
                 
-                if (roots_computed(i).real()>1e-10){
+                if (roots_computed(i).real()>0){
                     pos_real.push_back(roots_computed(i).real());
 
                 }
