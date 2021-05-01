@@ -257,8 +257,9 @@ void get_fraction_derivative_coeffs(vector<long double> &c1, vector<long double>
 
 }
 
-vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false, double halfmax=0.5, bool writex05coeffs= false, string fnamecoeffs="filename.txt"){
+vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &den, string rootmethod, bool verbose=false, double halfmax=0.5, bool writex05coeffs= false, bool absderivative=false, string fnamecoeffs="filename.txt"){
     if (verbose){
+    cout << "Function executed with:" << "rootmethod: " << rootmethod << "\n, verbose:" << verbose << "\n halfmax:" << halfmax << "\n writex05coeffs: " << writex05coeffs << "\n absderivative: " << absderivative;
     cout << "Printing halfmax\n";
     cout<< halfmax;
     cout << "\n";
@@ -521,10 +522,42 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
         long double thirdderx, thirdderx0;
         nnum=derivative2num.size();
         nden=derivative2den.size();
-
-
+        vector <long double> maxderv;
+        vector <long double> xmaxderv;
         vector<long double> derivative3num(nnum+nden-2);
         vector<long double> derivative3den(nden+nden-1);
+
+        if (absderivative){
+            nnum=derivativenum.size();
+            nden=derivativeden.size();
+            for (j=0;j<critpoints.size();j++){
+                num_sum=0;
+                den_sum=0;
+                
+                for (i=0;i<nnum;i++){
+                    xp=pow(critpoints[j],(int)i);
+                    num_sum+=derivativenum[i]*xp;
+                }
+                for (i=0;i<nden;i++){
+                    xp=pow(critpoints[j],(int)i);
+                    den_sum+=derivativeden[i]*xp;
+                    //py::print("Adding to num",derivative3num[i],xp,num_sum);
+                    //py::print("Adding to den",derivative3den[i],xp,den_sum);
+                }
+                if  (verbose){
+                    cout << "derivative value at a critical point " << critpoints[j] <<":"<< num_sum/den_sum <<","<<abs(num_sum/den_sum);
+                }
+
+
+                maxderv.push_back(abs(num_sum/den_sum));
+                xmaxderv.push_back(critpoints[j]);
+            }
+
+
+        }else{
+
+
+        
         //py::print("original size", nnum+nden-2, derivative3num.size());
 
 
@@ -540,9 +573,6 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
             if (verbose){
                 cout << "Looking at derivative 3\n ";
             }
-
-            vector <long double> maxderv;
-            vector <long double> xmaxderv;
 
                        
             for (j=0;j<critpoints.size();j++){
@@ -587,21 +617,29 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                     xmaxderv.push_back(critpoints[j]);
                 }
             }
+            }//derivative3numsize
+        }//absderivative
+            
 
-            Niter=maxderv.size();
-            if (Niter>0){
-                i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
-                
-                //need to check that max derivative is greater than the derivative at 0
-                double derivative_at_0=derivativenum[0]/derivativeden[0];
-                if (derivative_at_0<maxderv[i]){
-                    result[1]=maxderv[i]; //*x05;
-                    result[0]=xmaxderv[i]; ///x05;
-                }else{
-                    if (verbose){
-                    cout<<"Max at 0!\n";
-                    }
+
+        Niter=maxderv.size();
+        if (Niter>0){
+            i=distance(maxderv.begin(),max_element(maxderv.begin(),maxderv.end()));
+            
+            //need to check that max derivative is greater than the derivative at 0
+            double derivative_at_0=derivativenum[0]/derivativeden[0];
+            if (absderivative){
+                derivative_at_0=abs(derivative_at_0);
+            }
+            if (derivative_at_0<maxderv[i]){
+                result[1]=maxderv[i]; //*x05;
+                result[0]=xmaxderv[i]; ///x05;
+            }else{
+                if (verbose){
+                cout<<"Max derivative occurs at 0!" << derivative_at_0 << "\n";
                 }
+            }
+        }
 
                 
                 //py::print("maxder",maxder);
@@ -610,11 +648,12 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
                 //result[1]=maxder;
 
 
-            }//else{
+            //else{
                 //py::print("Could not find max derivative despite finding critical points.");
                 //cout << "Could not find max derivative despite finding critical points.";
             //}
-        }//derivative3num
+        
+        
     }//critpoints
 
     //x05
