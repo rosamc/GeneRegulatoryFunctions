@@ -342,9 +342,9 @@ namespace py=pybind11;\n
         if self.strategy=="pol" and computex05numerically is False:
             raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
         else:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, bool verbose=false ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
@@ -358,23 +358,23 @@ namespace py=pybind11;\n
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
-            fh.write("    vector<double> min_max(2);\n")
+            fh.write("    vector<long double> min_max(2);\n")
             if len(self.concvars)>1:
                 fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
             else:
                 fh.write("    compute_min_maxGRF(parsar,min_max);\n")
     
             fh.write("""
-    double Gmin=min_max[0];
-    double Gmax=min_max[1];
+    long double Gmin=min_max[0];
+    long double Gmax=min_max[1];
     double midpoint=Gmin+0.5*(Gmax-Gmin);
     if  (Gmax<0){
     result={-1.0,-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"simple",verbose,midpoint);
+    result=compute_pos_stp(num,den,"simple",verbose,midpoint,writex05coeffs, absder);
     }\n""")
         else:
-            fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose);\n")
+            fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose, 0.5, writex05coeffs, absder);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(3);
@@ -429,9 +429,9 @@ namespace py=pybind11;\n
         if self.strategy=="pol" and computex05numerically is False:
             raise ValueError("For the pol model x05 has to be computed numerically.")
         if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
         else:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, bool verbose=false ) {\n"%funcname_varGRF)
+            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
 
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
@@ -445,14 +445,14 @@ namespace py=pybind11;\n
         else:
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
         if computex05numerically:
-            fh.write("    vector<double> min_max(2);\n")
+            fh.write("    vector<long double> min_max(2);\n")
             if len(self.concvars)>1:
                 fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
             else:
                 fh.write("    compute_min_maxGRF(parsar,min_max);\n")
             fh.write("""
-    double Gmin=min_max[0];
-    double Gmax=min_max[1];
+    long double Gmin=min_max[0];
+    long double Gmax=min_max[1];
     double midpoint=Gmin+0.5*(Gmax-Gmin);
     //py::print(Gmax);
 
@@ -461,10 +461,10 @@ namespace py=pybind11;\n
     if  (Gmax<0){
     result={-1.0,-1.0,-1.0};
     }else{
-    result=compute_pos_stp(num,den,"aberth",verbose,midpoint);
+    result=compute_pos_stp(num,den,"aberth",verbose,midpoint, writex05coeffs, absder);
     }\n""")
         else:
-            fh.write("    result=compute_pos_stp(num,den,\"aberth\", verbose);\n")
+            fh.write("    result=compute_pos_stp(num,den,\"aberth\", verbose, 0.5, writex05coeffs, absder);\n")
 
         fh.write("""
     py::array_t<double> resultpy = py::array_t<double>(3);
@@ -479,8 +479,8 @@ namespace py=pybind11;\n
 """)
         
     def __write_interface_GRFatinput(self,fh,funcname_varGRF,typestring):
-        """Write function which is called from python that computes the value of the GRF at a given input value."""
 
+        """Write function which is called from python that computes the value of the GRF at a given input value."""
         if len(self.concvars)>1:
             fh.write("double interface_%s(py::array_t<double> parsar, py::array_t<double> othervars, double varGRFval ) {\n\n"%funcname_varGRF)
         else:
@@ -500,7 +500,7 @@ namespace py=pybind11;\n
             fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
 
         fh.write("""
-    result=GRFatxonly(num,den,varGRFval);
+    result=GRFatxonly(num,den,(long double) varGRFval);
     return result;
 }\n
 """)
@@ -508,9 +508,9 @@ namespace py=pybind11;\n
     def __write_compute_min_maxGRF(self,fh,funcname_varGRF,typestring):
         """Write function to compute min and max from GRF numerically"""
         if len(self.concvars)>1:
-            fh.write("void compute_min_maxGRF(py::array_t<double> parsar,py::array_t<double> othervars, vector<double> &min_max){\n")
+            fh.write("void compute_min_maxGRF(py::array_t<double> parsar,py::array_t<double> othervars, vector<long double> &min_max){\n")
         else:
-            fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<double> &min_max){\n")
+            fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<long double> &min_max){\n")
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
     vector<T> num;
@@ -529,23 +529,21 @@ namespace py=pybind11;\n
     double Gmin=1e20;
 
     
-    int Nmax=2000;
-    double xvalmin=-20;
-    double xvalmax=20;
+    int Nmax=5000;
+    double xvalmin=-40;
+    double xvalmax=40;
     double step=(xvalmax-xvalmin)/Nmax;
-    vector<double> GRFvec(Nmax);
     double xval;
-    double xval10;
-    double GRFval;
+    long double xval10;
+    long double GRFval;
     //double ymin,ymax;
     
         
         
-    //compute min and max numerically
-    //I need to identify the min before the max. Otherwise it can be that the min is after the max and I think this is not what we want
+    //compute min and max numerically. Take the global max and the global min
         
     xval=xvalmin;
-    vector <double> GRFvalsvec(Nmax);
+    vector <long double> GRFvalsvec(Nmax);
     
     for (int i=0;i<Nmax;i++){
         xval10=pow(10,xval);
@@ -556,18 +554,8 @@ namespace py=pybind11;\n
         if (GRFval>Gmax){
             Gmax=GRFval;
         }
-        //if (GRFval<Gmin){
-        //    Gmin=GRFval;
-        //}
-    }
-
-    //now go over the function values, and pick the minimum as long as Gmax is not reached
-    //find where the max occurs
-    int idx=distance(GRFvalsvec.begin(),max_element(GRFvalsvec.begin(),GRFvalsvec.end()));
-    for (int i=0;i<idx;i++){
-        GRFval=GRFvalsvec[i];
         if (GRFval<Gmin){
-           Gmin=GRFval;
+            Gmin=GRFval;
         }
     }
 
@@ -653,7 +641,7 @@ namespace py=pybind11;\n
 """)
 
     def __write_GRFatxonly(self,fh,typestring):
-        fh.write("double GRFatxonly(vector<long double>&num, vector<long double>&den, double varGRFval){")
+        fh.write("double GRFatxonly(vector<long double>&num, vector<long double>&den, long double varGRFval){\n")
         fh.write("    typedef %s T;\n"%typestring)
         fh.write("""
     
@@ -710,15 +698,18 @@ namespace py=pybind11;\n
         if posstpfromcritpoints:
             f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\",\n"%(funcname_varGRF, funcname_varGRF))
             if len(self.concvars)>1:
-                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false);\n")
+                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), ")
             else:
-                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false);\n")
+                f.write("   py::arg(\"parsar\"), ")
+            f.write("py::arg(\"verbose\")=false, py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false);\n")
+            f.write("")
 
             f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\",\n"%(funcname_varGRF, funcname_varGRF))
             if len(self.concvars)>1:
-                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false);\n")
+                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), ")
             else:
-                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false);\n")
+                f.write("   py::arg(\"parsar\"), ")
+            f.write("py::arg(\"verbose\")=false, py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false);\n")
 
         if posstpfromGRF:
             f.write("    m.def(\"interfaceps_fromGRF_%s\", &interfaceps_fromGRF_%s, \"A function which returns pos stp, approximates derivative from GRF valuesr.\",\n"%(funcname_varGRF, funcname_varGRF))
