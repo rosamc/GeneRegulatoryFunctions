@@ -7,7 +7,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <iostream>
-#include "polynomial.hpp"
+#include <polynomial.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <boost/random.hpp>
@@ -24,19 +24,27 @@ using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend; 
 using boost::multiprecision::mpc_complex_backend; 
 
-
-namespace py=pybind11;
-
-/* Function to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
-Rosa Martinez Corral. 06/11/2019
-*/
-
 typedef number<mpfr_float_backend<40> >  mpfr_40;
 typedef number<mpc_complex_backend<40> > mpc_40;
-typedef number<mpfr_float_backend<30> >  mpfr_30;
-typedef number<mpc_complex_backend<30> > mpc_30;
-typedef number<mpfr_float_backend<20> >  mpfr_20;
-typedef number<mpc_complex_backend<20> > mpc_20;
+//namespace py=pybind11;
+
+/* 
+    Code to compute position and steepness for a GRF, and function to assess if it is monotonic or not.
+    Copyright (C) <2021>  <Rosa Martinez Corral>
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+*/
 
 vector <long double> trim_zerocoeff(vector<long double> coeffs){
 	vector<long double>::const_iterator first = coeffs.begin() + 1;
@@ -45,18 +53,18 @@ vector <long double> trim_zerocoeff(vector<long double> coeffs){
     return newVec;
 }
 
+
+
 void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long double> &pos_real){
 
-    
+    //cout << "solving with boost\n";
     long double root;
 
     unsigned max_iter = 10000; 
     double tol = std::numeric_limits<double>::epsilon(); 
-    boost::random::mt19937 rng;
+    boost::random::mt19937 rng(1234567890);
     boost::random::uniform_real_distribution<> dist(0, 1);
     number<mpfr_float_backend<40> > threshold = std::numeric_limits<number<mpfr_float_backend<40> > >::epsilon(); 
-
-    //const long double imag_tol = 1e-20;
 
 
     //If the constant coefficient of the polynomial is 0, 
@@ -64,41 +72,26 @@ void get_positive_real_roots_aberth(vector<long double> coeffsx05, vector<long d
     //then it is equivalent to x(b+ax)=0
     //so it is equivalent to finding the roots of a polynomial of one degree less
     //the initialization method only works when constant coefficient is not zero, so update
-    cout << "trimming\n";
-    cout.flush();
+    //cout << "trimming\n";
+    //cout.flush();
     while ((abs(coeffsx05[0])<threshold)&&(coeffsx05.size()>1)){
-    	coeffsx05=trim_zerocoeff(coeffsx05);
+        coeffsx05=trim_zerocoeff(coeffsx05);
     }
-    cout << "trimmed\n";
-    cout.flush();
+    //cout << "trimmed\n";
+    //cout.flush();
     if (coeffsx05.size()>1){
-    	std::vector<mpfr_40> r_coefs;    
-        for (unsigned i=0;i<coeffsx05.size();i++){
-            r_coefs.push_back(mpfr_40(std::to_string(coeffsx05[i])));
-            cout << coeffsx05[i] <<",";
-            cout << "\n";
-            cout.flush();
-        }
-        Polynomial<40> p(r_coefs);
-        //py::print("pcoeffs", p.coefficients());
-        //Matrix<double, Dynamic, 1> roots = p.positiveRoots();
-        //py::print("new method, roots found", roots.size());
-        //std::vector<std::complex<double> > inits = biniInitialize(p.coefficients(), rng, dist);
-        //py::print("inits found");
-        //for (int i=0;i<inits.size();i++){
-        //    py::print(inits[i]);
-        //}
-        cout << "going to compute roots\n";
-        cout.flush();
+        
+        Polynomial<40> p(coeffsx05);
+        //cout << "going to compute roots\n";
+        //cout.flush();
         std::pair<std::vector<mpc_40>, bool> roots_computed = p.roots(max_iter,tol,tol,rng,dist);
         if (roots_computed.second){ //converged
-        cout << "roots computed ";
-        cout.flush();
-        //Matrix<std::complex<double>, Dynamic, 1> roots_computed = p.roots(Aberth, 1000, 1e-15, 1e-15, 20, inits); //(1000,1e-15,1e-15,20,inits)
+        //cout << "roots computed ";
+        //cout.flush();
         for (unsigned i=0;i<roots_computed.first.size();i++){
-        	/*cout << roots_computed.first[i];
-        	cout <<"\n";
-        	cout.flush();*/
+            /*cout << roots_computed.first[i];
+            cout <<"\n";
+            cout.flush();*/
             if (abs(roots_computed.first[i].imag()) < threshold){
                 //py::print("root",i,roots[i]);
                 
@@ -332,14 +325,13 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     
     
     if (rootmethod=="simple"){
-    get_positive_real_roots(coeffsx05, x05v);
-    }
-    if (rootmethod=="aberth"){
-    get_positive_real_roots_aberth(coeffsx05, x05v);
+        get_positive_real_roots(coeffsx05, x05v);
+    }else if (rootmethod=="aberth"){
+        get_positive_real_roots_aberth(coeffsx05, x05v);
     }
   
     //py::print("roots x05");
-    vector<double> result = {-1.0, -1.0, -1.0}; //addint x05 as well
+    vector<double> result = {-1.0, -1.0, -1.0}; //adding x05 as well
     //double maxder=-1;
     //double xmaxder=-1;
 
@@ -508,12 +500,12 @@ vector<double> compute_pos_stp(vector<long double> &num, vector<long double> &de
     
     vector<long double> critpoints;
     if (rootmethod=="simple"){
-    get_positive_real_roots(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
+        get_positive_real_roots(derivative2num,critpoints);
+    }else if (rootmethod=="aberth"){
+        get_positive_real_roots_aberth(derivative2num,critpoints);
     }
-    if (rootmethod=="aberth"){
-    get_positive_real_roots_aberth(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
-    }
-    //py::print("criticalpoints");
+
+        //py::print("criticalpoints");
     if (verbose){
     cout << "critpoints for derivative2num\n ";
     if (critpoints.size()==0){
