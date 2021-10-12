@@ -123,9 +123,6 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     unfinishedfolder: to be used with final=True in case not everything converged. Then this is the folderpath to a folder with the output folders were the intermediate results are saved.
     difparslimit: set to True if not all jobs were run for the same parameter limits, in this case it will group boundaries by parslimit
     """
-    if final is True and unfinishedfolder is not None:
-        print("final=True is incompatible with a value for unfinishedfolder")
-        raise(ValueError)
     basename_mat='mat_%s'%basename
     basename_mat_pars='mat_pars_%s'%basename
     pat_mat=re.compile('%s_([0-9]*).npy'%basename_mat)
@@ -137,17 +134,50 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
     
     
     
-    if final is False:
-        folders=glob.glob(fldr+"/%s*"%basename) 
-    else:
+    if final:
         outf=os.path.join(fldr,'final_results')
+        outffinal=outf
         folders=glob.glob(outf+"/mat_%s*.npy"%basename)
         folders=[x.replace("_last.npy",'') for x in folders]
+        jids_done=[x.split("_")[-1] for x in folders]
+    else:
+        folders=[]
+        jids_done=[]
+
+    unfinished_mask=[False for x in range(len(folders))]
+    toprocess=[True for x in range(len(folders))]
+    if unfinishedfolder is not None:
+        #check if there is something here:
+        folders_unfinished=glob.glob(unfinishedfolder+"/%s*"%basename)
+        if len(folders_unfinished)>0:
+            toprocess_unf=[]
+            for folder in folders_unfinished:
+                matfiles=glob.glob(os.path.join(unfinishedfolder,folder)+"/mat_pars*")
+                jid=folder.split("_")[-1]
+                if not jid in jids_done:
+                    unfinished_mask.append(True)
+                    toprocess_unf.append(os.path.join(unfinishedfolder,folder))
+                    
+                    if len(matfiles)>0:
+                        toprocess.append(True)
+                    else:
+                        toprocess.append(False)
+                        
+                    
+                    
+            
+            folders.extend(toprocess_unf)
+    print("folders are")
+    print(folders)
 
     jids=np.array([int(x.split("_")[-1]) for x in folders])
     argsort_jids=np.argsort(jids)
     jids=jids[argsort_jids]
-    folders=np.array(folders)[argsort_jids]
+    #folders=np.array(folders,dtype=str)[argsort_jids] #this changes the folder names from string to byte string and the code that follows breaks
+    folders=[folders[argi] for argi in argsort_jids]
+    
+    unfinished_mask=np.array(unfinished_mask)[argsort_jids]
+    toprocess_mask=np.array(toprocess)[argsort_jids]
     #print(jids)
     #print(folders)
     if njobs is not None:
@@ -156,12 +186,6 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             raise ValueError
 
 
-    toprocess_unf=[]
-    if unfinishedfolder is not None:
-        #check if there is something here:
-        folders_unfinished=glob.glob(unfinishedfolder+"/%s*"%basename)
-        if len(folders_unfinished)>0:
-            toprocess_unf=[os.path.join(unfinishedfolder,f) for f in folders_unfinished]
 
     
     #make lists of jids that correspond to same parameter limits
@@ -205,6 +229,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
 
     return_list=[]
     for jids2 in group_jids:
+
         print("Processing", jids2)
         if joinmats:
             matslist=[]
@@ -213,45 +238,47 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
             allpointslist=[]
             allpointscolnames=['row','col','parameters']
 
-        if unfinishedfolder is not None:
-            njobs=len(jids2)+len(toprocess_unf)
-            itemslist=range(njobs)
-        else:
-            itemslist=range(len(jids2))
+        
+        itemslist=range(len(jids2))
 
         for i_ in itemslist:
-            if i_<len(jids2):
-                i=jids2[i_]
-                unfinished=False
-            else:
-                unfinished=True
+            i=jids2[i_]
+            print("jid is", i)
+            idxi=np.where(jids==i)[0][0]
 
-            if final is False or unfinished:
+
+            if unfinished_mask[idxi]:
+                print(i, "unfinished")
                 #In case the search did not finish due to maximum time allowed on cluster reached
-                if final is False:
-                    folder=folders[np.where(jids==i)[0][0]] #get folder corresponding to that jid
-                    outfolder=os.path.join(fldr,folder)
+                
+                folder=folders[idxi] #get folder corresponding to that jid
+                if toprocess_mask[idxi]:
+                
+                    outfolder=os.path.join(unfinishedfolder,folder)
                     outf=outfolder
+                    print(outf)
+                    
+
+                    mats=[f for f in os.listdir(outfolder) if basename_mat in f]
+                    iters=[int(pat_mat.findall(f)[0]) for f in mats]
+                    argsort=np.argsort(iters)
+                    last_iter_m=iters[argsort[-1]]
+                    last_iter=last_iter_m
+
+                    mat=np.load(os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m)))
+                    mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
+                    timediff='-'
+                    converged='-'
+                    cont=True
                 else:
-
-                    outfolder=toprocess_unf[i_%len(jids)]
-                    i=int(outfolder.split("_")[-1])
-
-                mats=[f for f in os.listdir(outfolder) if basename_mat in f]
-                iters=[int(pat_mat.findall(f)[0]) for f in mats]
-                argsort=np.argsort(iters)
-                last_iter_m=iters[argsort[-1]]
-                last_iter=last_iter_m
-
-                mat=np.load(os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m)))
-                mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
-                timediff='-'
-                converged='-'
-                cont=True
+                    cont=False
 
             else:       
                 try:
-                    mat=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i)))
+                    outf=outffinal
+                    namemat=os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i))
+                    print(namemat)
+                    mat=np.load(namemat)
                     mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
                     if jid_num is not None:
                         stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
@@ -357,20 +384,27 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     outfile.close()
         plt.tight_layout()
         plt.show()
+        
         if printtocheck:
             print('folder to check with mathematica is', folder_tocheck)
 
         if getallpoints:
-            allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
-
+            if len(allpointslist)>0:
+                allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
+            else:
+                allpdf=None
+                
         returnar=[]
         if joinmats:
-            returnar.append(get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar))
+            if len(matslist)>0:
+                returnar.append(get_common_boundary(matslist,matsparslist,row_ar=row_ar,col_ar=col_ar))
+            else:
+                returnar.append(None)
         if printtocheck:
             returnar.append(folder_tocheck)
         if getallpoints:
             returnar.append(allpdf)
-        return_list.append(returnar)
+            return_list.append(returnar)
 
     if len(return_list)==1:#when all parameter have same pars_limit
         return return_list[0]
