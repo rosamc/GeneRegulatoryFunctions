@@ -8,7 +8,7 @@
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/mpc.hpp>
 #include <polynomial.hpp>
-#include <posstpfunc_boost_multiprT.hpp>
+#include <posstpfunc_cpp_boost_multiprT.hpp>
 
 using namespace std;
 
