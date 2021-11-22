@@ -72,9 +72,9 @@ void compute_min_maxGRF(vector<T> num, vector<T> den, vector<T> &min_max){
     T Gmin=1e20;
 
     
-    int Nmax=5000;
-    double xvalmin=-30;
-    double xvalmax=30;
+    int Nmax=6000;
+    double xvalmin=-60;
+    double xvalmax=60;
     double step=(xvalmax-xvalmin)/Nmax;
     T xval;
     T xval10;
