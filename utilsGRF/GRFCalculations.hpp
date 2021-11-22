@@ -71,7 +71,7 @@ class GRFCalculations{
 		    for (int i=0;i<den.size();i++){
 		        ptrresultpy[i+j]=den[i].template convert_to<double>();
 		    }
-		    resultpy.resize({2,7});
+		    resultpy.resize({2,ncoeffs});
 
             return resultpy;
 
