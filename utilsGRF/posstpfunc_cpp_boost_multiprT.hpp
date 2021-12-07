@@ -268,7 +268,7 @@ void get_fraction_derivative_coeffs(vector<T> &c1, vector<T> &c2, vector<T> &der
 }
 
 template<typename T, typename Tpolyc, typename polytype, typename thresholdtype>
-vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod, bool verbose, T halfmax, thresholdtype thresholdimag, bool writex05coeffs, bool absderivative, bool normalisefirst, string fnamecoeffs){
+vector<T> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod, bool verbose, T halfmax, thresholdtype thresholdimag, bool writex05coeffs, bool absderivative, bool normalisefirst, string fnamecoeffs){
     //thresholdimag: threshold under which imaginary part of root is considered to be 0
     if (rootmethod != "aberth"){
         cout << "rootmethod should be aberth. Exiting.";
@@ -324,7 +324,7 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
     }
   
     //py::print("roots x05");
-    vector<double> result = {-1.0, -1.0, -1.0}; //adding x05 as well
+    vector<T> result = {-1.0, -1.0, -1.0}; //adding x05 as well
     //double maxder=-1;
     //double xmaxder=-1;
 
@@ -356,11 +356,8 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
         x05=*std::min_element(x05v.begin(),x05v.end());
         
     }
-    if constexpr (std::is_floating_point<T>::value){
-        result[2]=(double) x05;
-    }else{
-        result[2]=x05.template convert_to<double>();
-    }
+    
+    result[2]=x05;
 
     if (verbose){
         cout << "x05: "<< x05 << "\n";
@@ -625,21 +622,11 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
             }
             if (derivative_at_0<maxderv[i]){
                 if (normalisefirst){
-                    if constexpr (std::is_floating_point<T>::value){
-                        result[1]=(double) maxderv[i];
-                        result[0]=(double) xmaxderv[i];
-                    }else{
-                        result[1]=maxderv[i].template convert_to<double>();
-                        result[0]=xmaxderv[i].template convert_to<double>();
-                    }
+                        result[1]=maxderv[i];
+                        result[0]=xmaxderv[i];
                 }else{
-                    if constexpr (std::is_floating_point<T>::value){
-                        result[1]=(double) (maxderv[i]*x05);
-                        result[0]=(double) (xmaxderv[i]/x05);
-                    }else{
-                        result[1]=(maxderv[i]*x05).template convert_to<double>();
-                        result[0]=(xmaxderv[i]/x05).template convert_to<double>();
-                    }
+                        result[1]=(maxderv[i]*x05);
+                        result[0]=(xmaxderv[i]/x05);
                 }
             }else{
                 if (verbose){
@@ -676,7 +663,7 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
 }
 
 template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
-vector <double> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype thresholdimag){
+vector <T> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype thresholdimag){
 
     
     typename vector<T>::size_type i, j, nnum, nden;
@@ -685,7 +672,7 @@ vector <double> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype 
 
     nnum=num.size();
     nden=den.size(); 
-    vector<double> result;
+    vector<T> result;
 
 
     //derivative of GRF. It is a fraction: derivativenum/derivativeden
@@ -712,15 +699,10 @@ vector <double> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype 
 
     if (critpoints.size()>0){
         for (i=0;i<critpoints.size();i++){
-            if constexpr (std::is_floating_point<T>::value){
-                result.push_back((double) critpoints[i]);
-            }else{
-                result.push_back(critpoints[i].template convert_to<double>());
-            }
+            result.push_back(critpoints[i]);
         }
     }else{
         result = {-2.0};
-        
     }
     return result;
 }
