@@ -17,7 +17,7 @@
 
 import sys, os, sympy, re, glob
 from sympy.parsing.sympy_parser import parse_expr
-from sympy.printing.cxxcode import cxxcode
+from sympy.printing.cxx import cxxcode
 import numpy as np
 import subprocess
 import itertools
@@ -1040,15 +1040,24 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
     """Child class to be used for hypercube graphs with only TF or TF and Pol. 
     N is the number of TF binding sites (excluding polymerase in case of the Pol model).
     Initialise only with varGRF and concvars."""
-    def __init__(self,varGRF='x',concvars=['x','P'], N=3, strategy='pol'):
+    def __init__(self,varGRF='x',concvars=['x','P'], N=3, strategy='pol', sitedict=None):
         
         super().__init__(varGRF=varGRF,concvars=concvars)
         self.N=N
         if 'P' in concvars and strategy != "pol":
             print("For Pol model strategy should be pol. Exiting...")
             raise ValueError
-        self.strategy=strategy #an, av, oom, pol, anyfi
-        
+        if strategy=="multiTF":
+            if sitedict is None:
+                print("For strategy multiTF a dictionary relating each site to its corresponding TF is necessary. The dictionary should have each site as a string key, and the corresponding TF as value. Exiting...")
+            else:
+                sitedict2=dict() #make sure keys are strings
+                for key in sitedict.keys():
+                    sitedict2[str(key)]=str(sitedict[key])
+                sitedict=sitedict2
+        self.strategy=strategy #an, av, oom, pol, anyfi, multiTF
+        self.sitedict=sitedict
+
     
         
     def __get_rho(self, sites, sitep=None,c=1):
@@ -1058,6 +1067,13 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
 
         sites_=sites.split(',')
         if len(sites_)==1:
+            TFs=""
+            site=sites_[0]
+            if self.strategy=="multiTF":
+                TFs+="%s**1"%self.sitedict[site]
+            else:
+                TFs+="%s**1"%self.varGRF
+
             if sitep is None:
                 if self.multiconf:
                     prefix=""
@@ -1065,16 +1081,17 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                     if c>1:
                         prefix="l%d * "%c
 
-                    rho=prefix+'%s%s * x**1'%(K,sites_[0])
+                    rho=prefix+'%s%s * %s'%(K,sites_[0],TFs)
                 else:
-                    rho='K%s * x**1'%(sites_[0])
+                    rho='K%s * %s'%(sites_[0],TFs)
             else:
                 if sites_[0]==sitep:
                     rho='P'
                 else:
-                    rho='K%s * x**1'%(sites_[0]) #the power to the 1 is used below for parsing
+                    rho='K%s * %s'%(sites_[0],TFs) #the power to the 1 is used below for parsing
         else:
             rho=''
+
             if self.multiconf:
                 prefix=""
                 if c>1:
@@ -1104,15 +1121,34 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
 
             if sites_[-1]==sitep:
                 ns=len(sites_)-1
-                rho+='P * wp%s * x**%d'%(''.join(sites_[:-1]),ns)
+
+                if self.strategy=="multiTF":
+                    TFlist=[self.sitedict[site] for site in sites_[:-1]]
+                    TFs=",".join(TFlist)
+                else:
+                    TFs="%s**%d"%(self.varGRF,ns)
+
+                
+                rho+='P * wp%s * %s'%(''.join(sites_[:-1]),TFs)
             else:
                 ns=len(sites_)
-                if self.multiconf:
-                    rho+='K_%d_%s * x**%d'%(c,sites_[-1],ns)
+                if self.strategy=="multiTF":
+                    TFlist=[self.sitedict[site] for site in sites_]
+                    TFs=""
+                    for TF in np.unique(TFlist):
+                        ncounts=TFlist.count(TF)
+                        TFs+="%s**%d * "%(TF,ncounts)
+                    TFs=TFs.strip(" * ")
+                    
                 else:
-                    rho+='K%s * x**%d'%(sites_[-1],ns)
+                    TFs="%s**%d"%(self.varGRF,ns)
+                if self.multiconf:
+                    rho+='K_%d_%s * %s'%(c,sites_[-1],TFs)
+                else:
+                    rho+='K%s * %s'%(sites_[-1],TFs)
 
         return rho
+
     
     
     def get_rhos_and_GRFs(self, verbose=True):
@@ -1160,7 +1196,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         symbols_str_sorted=[[],[],[]]
         for i in range(3):
             for snum,s in enumerate(symbols_str):
-                if len(s)>0 and not 'P' in s and not 'x' in s:
+                if len(s)>0 and not 'P' in s and not s in self.concvars:
                     if i==0:
                         if 'K' in s:
                             symbols_str_sorted[i].append(s)
@@ -1177,7 +1213,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             x.sort(key=lambda x:len(x))
             symbols_str_sorted_.extend(x)
         print(symbols_str_sorted_)
-        if self.strategy=="anyfi":
+        if self.strategy=="anyfi" or self.strategy=="multiTF":
             list_fi=["f%d"%(i+1) for i in range(nrhos)]
             self.parlist=list_fi+symbols_str_sorted_ #I am putting them at the beginning because the li need to go at the end so that they are appropriately treated when exploring
         else:
@@ -1189,7 +1225,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         if self.strategy=='an':
             numstring='1*(rho%d)'%(len(self.all_rhos))
         if self.strategy=='av':
-            xppat=re.compile('x\*\*([0-9]*)')
+            xppat=re.compile('%s\*\*([0-9]*)'%self.varGRF)
             numstring=''
             for i in range(len(self.all_rhos)):
                 rho=self.all_rhos[i]
@@ -1205,11 +1241,11 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             numstring='1*('
             for i in range(len(self.all_rhos)):
                 rho=self.all_rhos[i]
-                if 'P' in rho and 'x' in rho:
+                if 'P' in rho and self.varGRF in rho:
                     numstring+='rho%d+'%(i+1)
             numstring=numstring.strip('+')
             numstring+=')'
-        if self.strategy=="anyfi":
+        if self.strategy=="anyfi" or self.strategy=="multiTF":
             numstring=''
             for i in range(nrhos):
                 #rho=self.all_rhos[i]
