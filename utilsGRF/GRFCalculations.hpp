@@ -9,10 +9,24 @@
 #include <boost/multiprecision/mpc.hpp>
 #include <polynomial.hpp>
 #include <posstpfunc_cpp_boost_multiprT.hpp>
+#include <type_traits>
 
 using namespace std;
 
 namespace py=pybind11;
+
+//convert long double or boost multiprecision type to double
+//create a template that defines the general behaviour, and specialise for the case where it is long double. 
+
+template <typename T>
+double convert_to_double(T a){
+	return a.template convert_to<double>();
+}
+
+template <>
+double convert_to_double(long double a){
+	return (double) a;
+}
 
 
 template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
@@ -60,12 +74,7 @@ class GRFCalculations{
 	    	T result;
 	    	T varGRFval_T=varGRFval;
             result=GRFatxonly<T>(num,den,varGRFval_T);
-
-            if constexpr (std::is_floating_point<T>::value){
-            	return (double) result;
-            }else{
-                return result.template convert_to<double>(); //ammend so it also works with long double T
-            }
+            return convert_to_double<T>(result);
 
         }
 
@@ -79,30 +88,22 @@ class GRFCalculations{
 		    
 
 		    for (int i=0;i<num.size();i++){
-		    	if constexpr (std::is_floating_point<T>::value){
-		    		ptrresultpy[i]=(double) num[i];
-		    	}else{
-		            ptrresultpy[i]=num[i].template convert_to<double>();
-		        }
+		    	ptrresultpy[i]=convert_to_double<T>(num[i]);
 		    }
 		    int j=num.size();
 		    for (int i=0;i<den.size();i++){
-		    	if constexpr (std::is_floating_point<T>::value){
-		    		ptrresultpy[i+j]=(double) den[i];
-		    	}else{
-		            ptrresultpy[i+j]=den[i].template convert_to<double>();
-		        }
-		    }
+		    	ptrresultpy[i+j]=convert_to_double<T>(den[i]);
+		    }		    
 		    resultpy.resize({2,ncoeffs});
 
-            return resultpy;
+		    return resultpy;
 
         }
 
         py::array_t<double> interfaceps(bool verbose=false, double thresholdimag_=1e-15, bool writex05coeffs=false, bool absder=false, bool normalisefirst=true, string fnamecoeffs="filename.txt") {
 
         
-            vector<double>result;
+            vector<T>result;
             vector<T> min_max(2);
             compute_min_maxGRF<T>(num,den,min_max);
 
@@ -122,16 +123,16 @@ class GRFCalculations{
             py::array_t<double> resultpy = py::array_t<double>(3);
             py::buffer_info bufresultpy = resultpy.request();
             double *ptrresultpy=(double *) bufresultpy.ptr;
-            ptrresultpy[0]=result[0];
-            ptrresultpy[1]=result[1];
-            ptrresultpy[2]=result[2];
+            ptrresultpy[0]=convert_to_double<T>(result[0]);
+            ptrresultpy[1]=convert_to_double<T>(result[1]);
+            ptrresultpy[2]=convert_to_double<T>(result[2]);
 
             return  resultpy;
         }
 
         py::array_t<double> interfacemonotonic(double thresholdimag_=1e-15) {
     
-            vector<double> result;
+            vector<T> result;
             thresholdtype thresholdimag=thresholdimag_;
             result=compute_monotonic<T,Tpolyc,polytype,thresholdtype>(num,den,thresholdimag); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, -3 for each root out of the 10^-15,10^15 range, and the roots otherwise
             int n=result.size();
@@ -141,10 +142,10 @@ class GRFCalculations{
 		    for (int i=0;i<n;i++){
 		        //py::print("Result is",result[i]);
 		        if (result[i]<-0.5){
-		        ptrresultpy[i]=result[i];
+		        ptrresultpy[i]=convert_to_double<T>(result[i]);
 		        }else{
 		        if ((result[i]<pow(10.0,15))&&(result[i]>pow(10.0,-15))){
-		            ptrresultpy[i]=result[i];
+		            ptrresultpy[i]=convert_to_double<T>(result[i]);
 		        }else{
 		            ptrresultpy[i]=-3;
 		        }
