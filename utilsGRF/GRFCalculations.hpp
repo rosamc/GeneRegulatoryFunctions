@@ -1,17 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <stdlib.h>
-#include <iostream>
-#include <stdlib.h>
-#include <vector>
-#include <cmath>
-#include <boost/multiprecision/mpfr.hpp>
-#include <boost/multiprecision/mpc.hpp>
-#include <polynomial.hpp>
 #include <posstpfunc_cpp_boost_multiprT.hpp>
-#include <type_traits>
 
-using namespace std;
 
 namespace py=pybind11;
 
@@ -42,6 +32,7 @@ class GRFCalculations{
 	protected:
 	    vector<T> num;
 		vector<T> den;
+		vector<T> rhos;
 
     public:
 
@@ -60,8 +51,9 @@ class GRFCalculations{
 	        return precision;
 	    }
 	    
-	    void fill_num_den_class(py::array_t<double> parsar, py::array_t<double>othervars);
-	    
+	    void fill_num_den(py::array_t<double> parsar, py::array_t<double>othervars);
+	    void fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval);
+
 		void print_num_den(){
 	    	cout.precision(precision);
 	    	cout << num[0] <<"," << num[1] << "\n";
@@ -78,7 +70,16 @@ class GRFCalculations{
 
         }
 
-        
+        py::array_t<double> getrhos(){
+        	py::array_t<double> resultpy = py::array_t<double>(rhos.size());
+		    py::buffer_info bufresultpy = resultpy.request();
+		    double *ptrresultpy=(double *) bufresultpy.ptr;
+        	for (int i=0; i<rhos.size();i++){
+        		ptrresultpy[i]=convert_to_double<T>(rhos[i]);
+
+        	}
+
+        }
 
         py::array_t<double> interface_return_num_den(int ncoeffs){
 
