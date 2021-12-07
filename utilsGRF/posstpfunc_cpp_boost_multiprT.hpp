@@ -42,9 +42,8 @@ using std::string;
 // With respect to the original version, this accepts any type, including boost::multiprecision::number types with float/complex backends with user-defined precision.  
 //T: type of GRF coefficients and operations with them
 //polytype: type of polynomial class. 
-//Tpoly: type of threshold to determine if roots are positive real. Should be 
 //Tpolyc: type of complex number ot collect polynomial roots.
-//Tpoly, Tpolyc and polytype should be of same precision.
+//Tpolyc and polytype should be of same precision.
 
 template <typename T>
 T GRFatxonly(vector<T>&num, vector<T>&den, T varGRFval){ 
@@ -127,10 +126,9 @@ vector <T> trim_zerocoeff(vector<T> coeffs){
 }
 
 
-template <typename T, typename Tpoly, typename Tpolyc, typename polytype, typename thresholdtype>
+template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
 void get_positive_real_roots_aberth(vector<T> coeffsx05, vector<T> &pos_real, thresholdtype threshold){
-    /*coefficients are of type T, polynomial coefficients are of type Tpoly.  
-    Tpoly: typedef number<mpfr_float_backend<precision_poly> >  mympfr_poly;
+    /*coefficients are of type T 
     Tpolyc: typedef number<mpc_complex_backend<precision_poly> > mympc_poly;
     polytype: typedef Polynomial<precision_poly> polytype;
     threshold: threshold to decide if imaginary part of root is zero. With its own type.
@@ -269,7 +267,7 @@ void get_fraction_derivative_coeffs(vector<T> &c1, vector<T> &c2, vector<T> &der
 
 }
 
-template<typename T, typename Tpoly, typename Tpolyc, typename polytype, typename thresholdtype>
+template<typename T, typename Tpolyc, typename polytype, typename thresholdtype>
 vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod, bool verbose, T halfmax, thresholdtype thresholdimag, bool writex05coeffs, bool absderivative, bool normalisefirst, string fnamecoeffs){
     //thresholdimag: threshold under which imaginary part of root is considered to be 0
     if (rootmethod != "aberth"){
@@ -322,7 +320,7 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
     if (rootmethod=="simple"){
         ; //not implemented in this case. Before this led to execute get_positive_real_roots(coeffsx05, x05v);
     }else if (rootmethod=="aberth"){
-        get_positive_real_roots_aberth<T,Tpoly,Tpolyc,polytype,thresholdtype>(coeffsx05, x05v,thresholdimag);
+        get_positive_real_roots_aberth<T,Tpolyc,polytype,thresholdtype>(coeffsx05, x05v,thresholdimag);
     }
   
     //py::print("roots x05");
@@ -358,7 +356,11 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
         x05=*std::min_element(x05v.begin(),x05v.end());
         
     }
-    result[2]=x05.template convert_to<double>();
+    if constexpr (std::is_floating_point<T>::value){
+        result[2]=(double) x05;
+    }else{
+        result[2]=x05.template convert_to<double>();
+    }
 
     if (verbose){
         cout << "x05: "<< x05 << "\n";
@@ -485,7 +487,7 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
     if (rootmethod=="simple"){
         ; //get_positive_real_roots(derivative2num,critpoints);
     }else if (rootmethod=="aberth"){
-        get_positive_real_roots_aberth<T,Tpoly,Tpolyc,polytype,thresholdtype>(derivative2num,critpoints,thresholdimag);
+        get_positive_real_roots_aberth<T,Tpolyc,polytype,thresholdtype>(derivative2num,critpoints,thresholdimag);
     }
 
         //py::print("criticalpoints");
@@ -623,11 +625,21 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
             }
             if (derivative_at_0<maxderv[i]){
                 if (normalisefirst){
-                    result[1]=maxderv[i].template convert_to<double>();
-                    result[0]=xmaxderv[i].template convert_to<double>();
+                    if constexpr (std::is_floating_point<T>::value){
+                        result[1]=(double) maxderv[i];
+                        result[0]=(double) xmaxderv[i];
+                    }else{
+                        result[1]=maxderv[i].template convert_to<double>();
+                        result[0]=xmaxderv[i].template convert_to<double>();
+                    }
                 }else{
-                    result[1]=(maxderv[i]*x05).template convert_to<double>();
-                    result[0]=(xmaxderv[i]/x05).template convert_to<double>();
+                    if constexpr (std::is_floating_point<T>::value){
+                        result[1]=(double) (maxderv[i]*x05);
+                        result[0]=(double) (xmaxderv[i]/x05);
+                    }else{
+                        result[1]=(maxderv[i]*x05).template convert_to<double>();
+                        result[0]=(xmaxderv[i]/x05).template convert_to<double>();
+                    }
                 }
             }else{
                 if (verbose){
@@ -663,7 +675,7 @@ vector<double> compute_pos_stp(vector<T> &num, vector<T> &den, string rootmethod
     return result;
 }
 
-template <typename T, typename Tpoly, typename Tpolyc, typename polytype, typename thresholdtype>
+template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
 vector <double> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype thresholdimag){
 
     
@@ -696,11 +708,15 @@ vector <double> compute_monotonic(vector<T> &num, vector<T> &den, thresholdtype 
     //critical points of derivative correspond to roots of derivativenum
     vector<T> critpoints;
     //get_positive_real_roots(derivative2num,critpoints); //critical points are derivative2=0 so numerator of derivative2=0;
-    get_positive_real_roots_aberth<T,Tpoly,Tpolyc,polytype,thresholdtype>(derivativenum,critpoints,thresholdimag); //critical points are derivative2=0 so numerator of derivative2=0;
+    get_positive_real_roots_aberth<T,Tpolyc,polytype,thresholdtype>(derivativenum,critpoints,thresholdimag); //critical points are derivative2=0 so numerator of derivative2=0;
 
     if (critpoints.size()>0){
         for (i=0;i<critpoints.size();i++){
-            result.push_back(critpoints[i].template convert_to<double>());
+            if constexpr (std::is_floating_point<T>::value){
+                result.push_back((double) critpoints[i]);
+            }else{
+                result.push_back(critpoints[i].template convert_to<double>());
+            }
         }
     }else{
         result = {-2.0};

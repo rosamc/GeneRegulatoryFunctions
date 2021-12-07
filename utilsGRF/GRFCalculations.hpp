@@ -14,8 +14,16 @@ using namespace std;
 
 namespace py=pybind11;
 
-template <typename T, typename Tpoly, typename Tpolyc, typename polytype, typename thresholdtype>
+
+template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
 class GRFCalculations{
+
+	/*T: type for numerator and denominator of GRF and their operations
+    Tpolyc: typedef number<mpc_complex_backend<precision_poly> > mympc_poly;
+    polytype: typedef Polynomial<precision_poly> polytype;
+    (Tpolyc and polytype should be of same precision, used to compute the zeros of a polynomial)
+    threshold: threshold to decide if imaginary part of root is zero. With its own type.
+	*/
 
 	protected:
 	    vector<T> num;
@@ -53,9 +61,15 @@ class GRFCalculations{
 	    	T varGRFval_T=varGRFval;
             result=GRFatxonly<T>(num,den,varGRFval_T);
 
-            return result.template convert_to<double>(); //ammend so it also works with long double T
+            if constexpr (std::is_floating_point<T>::value){
+            	return (double) result;
+            }else{
+                return result.template convert_to<double>(); //ammend so it also works with long double T
+            }
 
         }
+
+        
 
         py::array_t<double> interface_return_num_den(int ncoeffs){
 
@@ -65,11 +79,19 @@ class GRFCalculations{
 		    
 
 		    for (int i=0;i<num.size();i++){
-		        ptrresultpy[i]=num[i].template convert_to<double>();
+		    	if constexpr (std::is_floating_point<T>::value){
+		    		ptrresultpy[i]=(double) num[i];
+		    	}else{
+		            ptrresultpy[i]=num[i].template convert_to<double>();
+		        }
 		    }
 		    int j=num.size();
 		    for (int i=0;i<den.size();i++){
-		        ptrresultpy[i+j]=den[i].template convert_to<double>();
+		    	if constexpr (std::is_floating_point<T>::value){
+		    		ptrresultpy[i+j]=(double) den[i];
+		    	}else{
+		            ptrresultpy[i+j]=den[i].template convert_to<double>();
+		        }
 		    }
 		    resultpy.resize({2,ncoeffs});
 
@@ -93,7 +115,7 @@ class GRFCalculations{
                 result={-1.0,-1.0,-1.0};
             }else{
             	thresholdtype thresholdimag=thresholdimag_;
-                result=compute_pos_stp<T,Tpoly,Tpolyc,polytype,thresholdtype>(num,den,"aberth",verbose,midpoint,thresholdimag,writex05coeffs, absder, normalisefirst,fnamecoeffs);
+                result=compute_pos_stp<T,Tpolyc,polytype,thresholdtype>(num,den,"aberth",verbose,midpoint,thresholdimag,writex05coeffs, absder, normalisefirst,fnamecoeffs);
 
             }
 
@@ -111,7 +133,7 @@ class GRFCalculations{
     
             vector<double> result;
             thresholdtype thresholdimag=thresholdimag_;
-            result=compute_monotonic<T,Tpoly,Tpolyc,polytype,thresholdtype>(num,den,thresholdimag); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, -3 for each root out of the 10^-15,10^15 range, and the roots otherwise
+            result=compute_monotonic<T,Tpolyc,polytype,thresholdtype>(num,den,thresholdimag); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, -3 for each root out of the 10^-15,10^15 range, and the roots otherwise
             int n=result.size();
             py::array_t<double> resultpy = py::array_t<double>(n);
 		    py::buffer_info bufresultpy = resultpy.request();
@@ -130,5 +152,6 @@ class GRFCalculations{
 		    }
             return resultpy;
         }
+        
 
 };
