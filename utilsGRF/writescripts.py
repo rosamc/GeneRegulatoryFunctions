@@ -145,37 +145,16 @@ class PrepareFiles():
 
     def __write_header(self, fh,posstpfromGRF=False):
         """Writes includes of cpp file."""
-        fh.write(    
-"""
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/eigen.h>
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
-#include <vector>
-#include <unsupported/Eigen/Polynomials>
-#include <cmath>
-#include <stdlib.h>
-#include <iostream>
-#include "posstpfunc_cpp_longdouble.h"
-""")
+        fh.write("#include \"commonincludes.hpp\"\n")
         if posstpfromGRF:
             fh.write("#include \"pos_stp_fromGRF.h\"\n")
 
-        fh.write("""
-using namespace std;
-using namespace Eigen;
-namespace py=pybind11;\n
-""")
         
     def __write_GRF_coeffs(self,fh,funcname_varGRF, typestring, additionallinespars=None):
         """write function that returns the coefficients of the numerator and denominator of the GRF (with respect to varGRF)."""
         
-        if len(self.concvars)>1:
-            fh.write("void %s(py::array_t<double> parsar, vector<%s> &num, vector<%s> &den, py::array_t<double>othervars){\n"%(funcname_varGRF,typestring,typestring))
-        else:
-            fh.write("void %s(py::array_t<double> parsar, vector<%s> &num, vector<%s> &den){\n"%(funcname_varGRF,typestring,typestring))
-        fh.write("    typedef %s T;\n"%typestring)
+        fh.write("template <typename T>\n")
+        fh.write("void %s(py::array_t<double> parsar, vector<T> &num, vector<T> &den, py::array_t<double>othervars){\n"%(funcname_varGRF))
         fh.write("""
     auto parsarbuf=parsar.request();
     double *pars=(double *) parsarbuf.ptr;\n""")
@@ -209,7 +188,7 @@ namespace py=pybind11;\n
 
                 fh.write("    T %s=pars[%d];\n"%(par,pnum))
 
-        if len(self.concvars)>1:
+        if True: #len(self.concvars)>1:
             fh.write("""
     auto varsarbuf=othervars.request();
     double *varsar=(double *) varsarbuf.ptr;\n""")
@@ -255,14 +234,11 @@ namespace py=pybind11;\n
             
         fh.write("}\n\n")
 
-    def __write_rhos_coeffs(self,fh,funcname_varGRF, typestring, additionallinespars=None):
+    def __write_rhos_coeffs(self,fh,funcname_varGRF, additionallinespars=None):
         """write function that returns the coefficients of the rhos (with respect to varGRF)."""
         
-        if len(self.concvars)>1:
-            fh.write("void rhos_%s(py::array_t<double> parsar, vector<%s> &rhos, py::array_t<double>othervars, double valGRF){\n"%(funcname_varGRF,typestring))
-        else:
-            fh.write("void rhos_%s(py::array_t<double> parsar, vector<%s> &rhos, double valGRF){\n"%(funcname_varGRF,typestring))
-        fh.write("    typedef %s T;\n"%typestring)
+        fh.write("template <typename T>\n")
+        fh.write("void rhos_%s(py::array_t<double> parsar, vector<T> &rhos, py::array_t<double>othervars, double valGRF){\n"%(funcname_varGRF))
         fh.write("""
     auto parsarbuf=parsar.request();
     double *pars=(double *) parsarbuf.ptr;\n""")
@@ -334,338 +310,30 @@ namespace py=pybind11;\n
             
         fh.write("}\n\n")
         
-    def __write_interface_posstp_simple(self,fh,funcname_varGRF,typestring,computex05numerically=False):
-        """write function which is called from python that computes position and steepness using the cpp code. 
-        Position and steepness are calculated computing the critical points of the derivative of the GRF.
-        Derivatives are computed by successively taking products of the coefficients of the polynomials with the exponents.
-        In this case roots of polynomials to find x05 and critical points of derivative are computed using eigenvalues of companion matrix."""
-        if self.strategy=="pol" and computex05numerically is False:
-            raise ValueError("For the pol model x05 has to be computed numerically.")
-        if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
-        else:
-            fh.write("py::array_t<double> interfaceps_s_%s(py::array_t<double> parsar, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    vector<double>result;
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-        if computex05numerically:
-            fh.write("    vector<long double> min_max(2);\n")
-            if len(self.concvars)>1:
-                fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
-            else:
-                fh.write("    compute_min_maxGRF(parsar,min_max);\n")
     
-            fh.write("""
-    long double Gmin=min_max[0];
-    long double Gmax=min_max[1];
-    double midpoint=Gmin+0.5*(Gmax-Gmin);
-    if  (Gmax<0){
-    result={-1.0,-1.0,-1.0};
-    }else{
-    result=compute_pos_stp(num,den,"simple",verbose,midpoint,writex05coeffs, absder);
-    }\n""")
-        else:
-            fh.write("    result=compute_pos_stp(num,den,\"simple\", verbose, 0.5, writex05coeffs, absder);\n")
 
-        fh.write("""
-    py::array_t<double> resultpy = py::array_t<double>(3);
-    py::buffer_info bufresultpy = resultpy.request();
-    double *ptrresultpy=(double *) bufresultpy.ptr;
-    ptrresultpy[0]=result[0];
-    ptrresultpy[1]=result[1];
-    ptrresultpy[2]=result[2];
 
-    return  resultpy;
-    }\n
-""")
+    def __write_specialisations(self,fh,funcname_varGRF):
+        """Define functions to fill numerator and denominator of GRF, as well as rhos."""
 
-    def __write_interface_posstp_fromGRF(self,fh,funcname_varGRF,typestring):
-        """write function which is called from python that computes position and steepness using the cpp code. 
-        Position and steepness are calculated by computing the GRF at multiple points and approximating the derivative from forward difference.
-        """
+        fh.write("""template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
+void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_num_den(py::array_t<double> parsar, py::array_t<double>othervars){
+            
+        %s<T>(parsar, this->num,this->den,othervars);
+    
+};\n"""%funcname_varGRF)
+
+        fh.write("""template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
+void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval){
+            
+        rhos_%s<T>(parsar, this->rhos,othervars, xval);
+    
+};\n"""%funcname_varGRF)
         
-        if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, int npoints=1000 ) {\n"%funcname_varGRF)
-        else:
-            fh.write("py::array_t<double> interfaceps_fromGRF_%s(py::array_t<double> parsar, bool verbose=false, int npoints=1000 ) {\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    vector<double>result;
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-        
-        fh.write("    result=compute_pos_stp_fromGRF(num,den,verbose,npoints);\n")
-
-        fh.write("""
-    py::array_t<double> resultpy = py::array_t<double>(2);
-    py::buffer_info bufresultpy = resultpy.request();
-    double *ptrresultpy=(double *) bufresultpy.ptr;
-    ptrresultpy[0]=result[0];
-    ptrresultpy[1]=result[1];
-
-    return  resultpy;
-    }\n
-""")
-        
-    def __write_interface_posstp_aberth(self,fh,funcname_varGRF,typestring,computex05numerically=False):
-        """write function which is called from python that computes position and steepness using the cpp code. 
-        In this case roots of polynomial are computed using aberth method implemented by Chris. Notice that this is much slower than using the "simple" option, but more accurate."""
-        if self.strategy=="pol" and computex05numerically is False:
-            raise ValueError("For the pol model x05 has to be computed numerically.")
-        if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, py::array_t<double> othervars, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
-        else:
-            fh.write("py::array_t<double> interfaceps_a_%s(py::array_t<double> parsar, bool verbose=false, bool writex05coeffs=false, bool absder=false ) {\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    vector<double>result;
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-        if computex05numerically:
-            fh.write("    vector<long double> min_max(2);\n")
-            if len(self.concvars)>1:
-                fh.write("    compute_min_maxGRF(parsar,othervars,min_max);\n")
-            else:
-                fh.write("    compute_min_maxGRF(parsar,min_max);\n")
-            fh.write("""
-    long double Gmin=min_max[0];
-    long double Gmax=min_max[1];
-    double midpoint=Gmin+0.5*(Gmax-Gmin);
-    //py::print(Gmax);
-
-    
-    
-    if  (Gmax<0){
-    result={-1.0,-1.0,-1.0};
-    }else{
-    result=compute_pos_stp(num,den,"aberth",verbose,midpoint, writex05coeffs, absder);
-    }\n""")
-        else:
-            fh.write("    result=compute_pos_stp(num,den,\"aberth\", verbose, 0.5, writex05coeffs, absder);\n")
-
-        fh.write("""
-    py::array_t<double> resultpy = py::array_t<double>(3);
-    py::buffer_info bufresultpy = resultpy.request();
-    double *ptrresultpy=(double *) bufresultpy.ptr;
-    ptrresultpy[0]=result[0];
-    ptrresultpy[1]=result[1];
-    ptrresultpy[2]=result[2];
-
-    return  resultpy;
-    }\n
-""")
-        
-    def __write_interface_GRFatinput(self,fh,funcname_varGRF,typestring):
-
-        """Write function which is called from python that computes the value of the GRF at a given input value."""
-        if len(self.concvars)>1:
-            fh.write("double interface_%s(py::array_t<double> parsar, py::array_t<double> othervars, double varGRFval ) {\n\n"%funcname_varGRF)
-        else:
-            fh.write("double interface_%s(py::array_t<double> parsar, double varGRFval ) {\n\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    double result;
-    
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-
-        fh.write("""
-    result=GRFatxonly(num,den,(long double) varGRFval);
-    return result;
-}\n
-""")
-
-    def __write_compute_min_maxGRF(self,fh,funcname_varGRF,typestring):
-        """Write function to compute min and max from GRF numerically"""
-        if len(self.concvars)>1:
-            fh.write("void compute_min_maxGRF(py::array_t<double> parsar,py::array_t<double> othervars, vector<long double> &min_max){\n")
-        else:
-            fh.write("void compute_min_maxGRF(py::array_t<double> parsar, vector<long double> &min_max){\n")
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    
-    
-    auto parsarbuf=parsar.request();
-    double *pars=(double *) parsarbuf.ptr;
-""")
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-        fh.write("""
-    double Gmax=-1;
-    double Gmin=1e20;
-
-    
-    int Nmax=5000;
-    double xvalmin=-40;
-    double xvalmax=40;
-    double step=(xvalmax-xvalmin)/Nmax;
-    double xval;
-    long double xval10;
-    long double GRFval;
-    //double ymin,ymax;
-    
-        
-        
-    //compute min and max numerically. Take the global max and the global min
-        
-    xval=xvalmin;
-    vector <long double> GRFvalsvec(Nmax);
-    
-    for (int i=0;i<Nmax;i++){
-        xval10=pow(10,xval);
-        //xvecmax[i]=xval10;
-        GRFval=GRFatxonly(num,den,xval10);
-        GRFvalsvec[i]=GRFval;
-        xval+=step;
-        if (GRFval>Gmax){
-            Gmax=GRFval;
-        }
-        if (GRFval<Gmin){
-            Gmin=GRFval;
-        }
-    }
-
-    min_max[0]=Gmin;
-    min_max[1]=Gmax;
-}\n
-""")
-
-
-    def __write_interface_rhosatinput(self,fh,funcname_varGRF,typestring):
-        """Write function which is called from python that computes the value of the rhos at a given input value."""
-
-        if len(self.concvars)>1:
-            fh.write("py::array_t<double> interface_rhos_%s(py::array_t<double> parsar, py::array_t<double> othervars, double varGRFval ) {\n\n"%funcname_varGRF)
-        else:
-            fh.write("py::array_t<double> interface_rhos_%s(py::array_t<double> parsar, double varGRFval ) {\n\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> rhos;
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    rhos_%s(parsar,rhos,othervars,varGRFval);\n"%funcname_varGRF)
-        else:
-            fh.write("    rhos_%s(parsar,rhos,varGRFval);\n"%funcname_varGRF)
-
-        fh.write("""
-    int n=rhos.size();
-    py::array_t<double> resultpy = py::array_t<double>(n);
-    py::buffer_info bufresultpy = resultpy.request();
-    double *ptrresultpy=(double *) bufresultpy.ptr;
-    for (int i=0;i<n;i++){
-    ptrresultpy[i]=rhos[i];
-    }
-    return resultpy;
-    
-    }\n
-""")
-                     
-    def __write_interface_monotonic(self,fh,funcname_varGRF,typestring):
-        """Write function which is called from python that checks if the GRF has critical points (returns 0) or not (returns 1).
-        This is experimental and should be tested further as of November 2019."""
-
-        if len(self.concvars)>1:
-            fh.write("py::array_t<double> interfacemonotonic_%s(py::array_t<double> parsar, py::array_t<double> othervars ) {\n"%funcname_varGRF)
-        else:
-            fh.write("py::array_t<double> interfacemonotonic_%s(py::array_t<double> parsar ) {\n"%funcname_varGRF)
-
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    vector<T> num;
-    vector<T> den;
-    vector<double> result;
-""")
-
-        if len(self.concvars)>1:
-            fh.write("    %s(parsar,num,den,othervars);\n"%funcname_varGRF)
-        else:
-            fh.write("    %s(parsar,num,den);\n"%funcname_varGRF)
-
-        fh.write("""
-    result=compute_monotonic(num,den); //return {-1} if derivative is 0, {-2} if no roots for the derivative of the GRF, -3 for each root out of the 10^-10,10^10 range, and the roots otherwise
-    int n=result.size();
-    py::array_t<double> resultpy = py::array_t<double>(n);
-    py::buffer_info bufresultpy = resultpy.request();
-    double *ptrresultpy=(double *) bufresultpy.ptr;
-    for (int i=0;i<n;i++){
-        //py::print("Result is",result[i]);
-        if (result[i]<-0.5){
-        ptrresultpy[i]=result[i];
-        }else{
-        if ((result[i]<pow(10.0,10))&&(result[i]>pow(10.0,-10))){
-            ptrresultpy[i]=result[i];
-        }else{
-            ptrresultpy[i]=-3;
-        }
-        }
-    }
-    return resultpy;
-    
-    }\n
-""")
-
-    def __write_GRFatxonly(self,fh,typestring):
-        fh.write("double GRFatxonly(vector<long double>&num, vector<long double>&den, long double varGRFval){\n")
-        fh.write("    typedef %s T;\n"%typestring)
-        fh.write("""
-    
-    T numsum=0;
-    T densum=0;
-    std::vector<T>::size_type i;
-    for (i=0;i<num.size();i++){
-        numsum+=num[i]*pow(varGRFval,(int)i);
-    }
-    for (i=0;i<den.size();i++){
-        densum+=den[i]*pow(varGRFval,(int)i);
-    }
-    double result=numsum/densum;
-    return result;
-    
-}
-
-
-""")
 
         
         
-    def write_pybind_interface(self,fname=None, funcname=None, typestring='long double',additionallinespars=None, 
-        computex05numerically=False, posstpfromGRF=False, posstpfromcritpoints=True):
+    def write_pybind_interface(self,fname=None, funcname=None, additionallinespars=None, posstpfromGRF=False, precision_types=[("long double","50","15"),("50","50","15"), ("100","100","15")]):
         """Writes .cpp file with GRF functions and computation of position and steepness. pybind is used to interface with them.
 
         """
@@ -679,54 +347,74 @@ namespace py=pybind11;\n
         f=open(fname,'w')
         self.__write_header(f,posstpfromGRF=posstpfromGRF)
         
-        self.__write_GRF_coeffs(f,funcname_varGRF,typestring,additionallinespars) #coefficients of num and den of GRF with respect to input
-        self.__write_rhos_coeffs(f,funcname_varGRF,typestring,additionallinespars) #rhos with respect to input
-        self.__write_GRFatxonly(f,typestring)
-        self.__write_interface_GRFatinput(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
-        if computex05numerically:
-            self.__write_compute_min_maxGRF(f,funcname_varGRF,typestring) #function to call from python to compute GRF at given input value
-
-        if posstpfromcritpoints:
-            self.__write_interface_posstp_simple(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found from eigenvalues of companion matrix
-            self.__write_interface_posstp_aberth(f,funcname_varGRF,typestring,computex05numerically=computex05numerically) #function to call from python to compute position-steepness. roots are found using aberth method. 
+        self.__write_GRF_coeffs(f,funcname_varGRF,additionallinespars) #coefficients of num and den of GRF with respect to input
+        self.__write_rhos_coeffs(f,funcname_varGRF,additionallinespars) #rhos with respect to input
+        self.__write_specialisations(f,funcname_varGRF)
         if posstpfromGRF:
+            raise ValueError("Not implemented for posstpfromGRF=True")
             self.__write_interface_posstp_fromGRF(f,funcname_varGRF,typestring)
-        self.__write_interface_monotonic(f,funcname_varGRF,typestring) #function to call from python to assess monotonicity
-        self.__write_interface_rhosatinput(f,funcname_varGRF,typestring) #compute min and max numerically in order to compute x05
-          
-        f.write("PYBIND11_MODULE(%s, m) {\n"%fname.split('/')[-1].replace('.cpp',''))
-        if posstpfromcritpoints:
-            f.write("    m.def(\"interfaceps_s_%s\", &interfaceps_s_%s, \"A function which returns pos stp, roots with eigenvalues of companion matrix.\",\n"%(funcname_varGRF, funcname_varGRF))
-            if len(self.concvars)>1:
-                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), ")
+        
+        template_strings=[]
+        template_names=[]
+        written_precisions_mpc=[]
+        written_precisions_mpfr=[]
+        written_precisions_poly=[]
+        for precision in precision_types:
+            precGRF, precpoly,precthreshold=precision
+            template_string="<"
+            template_name=""
+            if precGRF!= "long double":
+                if not precGRF in written_precisions_mpfr:
+                    f.write("typedef number<mpfr_float_backend<%s> > mpfr_%s;\n"%(precGRF,precGRF))
+                    written_precisions_mpfr.append(precGRF)
+                template_string+="mpfr_%s,"%precGRF
+                template_name+="%s_"%precGRF
+                
             else:
-                f.write("   py::arg(\"parsar\"), ")
-            f.write("py::arg(\"verbose\")=false, py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false);\n")
-            f.write("")
+                template_string+="%s,"%precGRF
+                template_name+="ld_"
+            if not precpoly in written_precisions_mpc: #otherwise it is already written
+                f.write("typedef number<mpc_complex_backend<%s> > mpc_%s;\n"%(precpoly,precpoly))
+                written_precisions_mpc.append(precpoly)
+            if not precpoly in written_precisions_poly:
+                f.write("typedef Polynomial<%s> polytype_%s;\n"%(precpoly, precpoly))
+                written_precisions_poly.append(precpoly)
+            template_string+="mpc_%s,polytype_%s,"%(precpoly,precpoly)
+            template_name+="%s_"%precpoly
+            if precthreshold!="long double":
+                if not precthreshold in written_precisions_mpfr:
+                    f.write("typedef number<mpfr_float_backend<%s> > mpfr_%s;\n"%(precthreshold,precthreshold))
+                    written_precisions_mpfr.append(precthreshold)
 
-            f.write("    m.def(\"interfaceps_a_%s\", &interfaceps_a_%s, \"A function which returns pos stp, roots with aberth method.\",\n"%(funcname_varGRF, funcname_varGRF))
-            if len(self.concvars)>1:
-                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), ")
+                template_string+="mpfr_%s>"%precthreshold
+                template_name+="%s"%precthreshold
             else:
-                f.write("   py::arg(\"parsar\"), ")
-            f.write("py::arg(\"verbose\")=false, py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false);\n")
+                template_string+="long double>"
+                template_name+="ld"
 
-        if posstpfromGRF:
-            f.write("    m.def(\"interfaceps_fromGRF_%s\", &interfaceps_fromGRF_%s, \"A function which returns pos stp, approximates derivative from GRF valuesr.\",\n"%(funcname_varGRF, funcname_varGRF))
-            if len(self.concvars)>1:
-                f.write("   py::arg(\"parsar\"), py::arg(\"othervars\"), py::arg(\"verbose\")=false, py::arg(\"npoints\") = 500);\n")
-            else:
-                f.write("   py::arg(\"parsar\"),  py::arg(\"verbose\")=false, py::arg(\"npoints\") = 500);\n")
+            template_strings.append(template_string)
+            template_names.append(template_name)
 
 
-        f.write("    m.def(\"interfacemonotonic_%s\", &interfacemonotonic_%s, \"A function which assessess whether GRF has a local maximum.\");\n"%(funcname_varGRF,funcname_varGRF))
-        f.write("    m.def(\"interface_%s\", &interface_%s, \" A function that returns GRF at a given input value.\");\n"%(funcname_varGRF, funcname_varGRF))
-        f.write("    m.def(\"interface_rhos_%s\", &interface_rhos_%s, \" A function that returns the rhos at a given input value.\");\n"%(funcname_varGRF, funcname_varGRF))
+        f.write("\n\nPYBIND11_MODULE(%s, m) {\n"%fname.split('/')[-1].replace('.cpp',''))
+        for p in range(len(template_strings)):
+            ts=template_strings[p]
+            tn=template_names[p]
+            f.write("    py::class_<GRFCalculations%s>(m, \"GRFCalculations_%s\", py::module_local())\n"%(ts,tn))
+            f.write("    .def(py::init())\n")
+            f.write("    .def(\"fill_num_den\", &GRFCalculations%s::fill_num_den)\n"%ts)
+            f.write("    .def(\"fill_rhos\", &GRFCalculations%s::fill_rhos)\n"%ts)
+            f.write("    .def(\"interfaceGRF\", &GRFCalculations%s::interfaceGRF)\n"%ts)
+            f.write("    .def(\"getrhos\", &GRFCalculations%s::getrhos)\n"%ts)
+            f.write("    .def(\"interfaceps\", &GRFCalculations%s::interfaceps,py::arg(\"verbose\")=false, py::arg(\"thresholdimag\")=1e-15,py::arg(\"minx0\")=false,py::arg(\"maxx1\")=false,py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false, py::arg(\"normalisefirst\")=true, py::arg(\"fnamecoeffs\")=\"coefficients.txt\")\n"%ts)
+            f.write("    .def(\"interface_return_num_den\", &GRFCalculations%s::interface_return_num_den)\n"%ts)
+            f.write("    .def(\"interfacemonotonic\", &GRFCalculations%s::interfacemonotonic, py::arg(\"thresholdimag\")=1e-15)\n"%ts)
+            f.write("    .def(\"print_num_den\", &GRFCalculations%s::print_num_den);\n\n"%ts)
 
         f.write("}\n")
         f.close()
         
-    def write_checkfile_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, max1=True):
+    def write_checkfile_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, min0=True, max1=True):
         print('writing mathematica file. max1 set to', max1)
         if self.strategy=="pol" and max1:
             print("pol model may not asymptote to 1. Set max1 to False. Exiting...")
@@ -740,6 +428,8 @@ namespace py=pybind11;\n
         f.write("""
 Print[\"First line\"];
 infolder=$ScriptCommandLine[[2]];
+absder=$ScriptCommandLine[[3]];
+If [absder=="True", Print["absder True"], Print["absder False"]];
 SetDirectory[infolder];
 tolpos=0.005;
 tolstp=0.005;
@@ -807,6 +497,8 @@ infiles=FileNames[\"mat*.in\"];\n
         f.write("parsliststring={%s};"%(",".join(parstring_nounderscore_commas))) #parameters searched
         f.write("""
 Print[\"Defined GRF\"];
+logspace[a_, b_, n_] := 10.0^Range[a, b, (b - a)/(n - 1)];
+ar = logspace[-60, 60, 6000];
 For[j=1,j<=Length[infiles],j++, 
 infname=infiles[[j]];
 WriteString[\"stdout\",infname,\"\\n\"];
@@ -834,18 +526,26 @@ PLIST=data[[i]][[3;;]];
             for i in range(len(parscgexpr)):
                 f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
-        if not max1:
-            f.write("maxX = Limit[f[x], x -> Infinity];\n")
-            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
-        else:
+        if min0 and max1:
             f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
+        elif min0 and not max1:
+            f.write("maxX = f[x]/. {x -> $MaxMachineNumber};\n")
+            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
+        else: # max1 and not min0:
+            f.write("min=Min[f[ar]];\n")
+            f.write("max=Max[f[ar]];\n")
+            f.write("midpoint=min+0.5*(max-min);\n")
+            f.write("halfX = Solve[f[x]==midpoint&&x>0,x];\n")
+
         f.write("""
+
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
-maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
+maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0,yv2];
 maxY=Append[maxY,{yv2->0}];
-maxD = D[g[yv2],yv2]/.maxY;
+If [absder=="True", maxD = Abs[D[g[yv2],yv2]/.maxY], maxD = D[g[yv2],yv2]/.maxY];
 rho =Max[maxD]; (* TAKE MAX GLOBAL DERIVATIVE *)
-If [rho == D[g[yv2], yv2] /. {yv2 -> 0}, 
+If [absder=="True", checkrho=Abs[D[g[yv2], yv2] /. {yv2 -> 0}], checkrho=D[g[yv2], yv2] /. {yv2 -> 0}];
+If [rho == checkrho, 
 WriteString["stdout",i, "maxat0,"];
 WriteString[outf2,StringRiffle[PLIST,","],"\\n"];,
 
@@ -855,7 +555,7 @@ WriteString["stdout",i,","];
 WriteString[outf,StringRiffle[{pos,rho},","],";", StringRiffle[PLIST,","],"\\n"];,
 
 WriteString["stdout","\\n not correct"];
-WriteString["stdout",pos,,rho,,pos0,, stp0];
+WriteString["stdout",pos,",",rho,";",pos0,",", stp0,";"];
 ]
 ]
 ]
@@ -864,7 +564,7 @@ Close[outf2];
 ]
         """)
         
-    def write_checksingleparset_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, max1=True):
+    def write_checksingleparset_mathematica_singlevar(self,fname='./testmf.txt', additionallinespars=None, min0=True,max1=True):
         """Writes a mathematica file to check the calculation for a given parameter set. Adapted from code by Felix Wong."""
         print('writing mathematica file. max1 set to', max1)
         if self.strategy=="pol" and max1:
@@ -875,6 +575,7 @@ Close[outf2];
                 print("There is more than 1 input variable. Pass a string to additionallinespars argument with the values corresponding to those")
               
         f=open(fname,'w')
+        f.write("""absder=\"False\";\n""")
         parstring_underscore=''
         for pnum,par in enumerate(self.parlist):
             par=par.replace('_','U')
@@ -924,7 +625,8 @@ Close[outf2];
             f.write(additionallinespars)
         f.write("""
 Print[\"Defined GRF\"];
-
+logspace[a_, b_, n_] := 10.0^Range[a, b, (b - a)/(n - 1)];
+ar = logspace[-60, 60, 6000];
 PLIST={};
 """)
         if not self.CG:
@@ -940,18 +642,24 @@ PLIST={};
             for i in range(len(parscgexpr)):
                 f.write(parscgexpr[i].strip().replace('_','U')+';\n')
         f.write("f[%s_]:=GRF[%s];\n"%(self.varGRF,allnounderscore))
-        if self.strategy=="pol":
-            f.write("maxX = Limit[f[x], x -> Infinity];\n")
-            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
-        else:
+        if min0 and max1:
             f.write("halfX = Solve[f[%s]==1/2&&%s>0,%s];\n"%(self.varGRF,self.varGRF,self.varGRF))
+        elif min0 and not max1:
+            f.write("maxX = f[x]/. {x -> $MaxMachineNumber};\n")
+            f.write("halfX = Solve[f[x]==maxX*0.5&&x>0,x];\n")
+        else: # max1 and not min0:
+            f.write("min=Min[f[ar]];\n")
+            f.write("max=Max[f[ar]];\n")
+            f.write("midpoint=min+0.5*(max-min);\n")
+            f.write("halfX = Solve[f[x]==midpoint&&x>0,x];\n")
         f.write("""
 g[yv2]:=f[halfX[[1]][[1]][[2]]*yv2];
-maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0&&yv2<10^(5),yv2];
+maxY = Solve[D[g[yv2],{yv2,2}]==0&&yv2>0,yv2];
 maxY=Append[maxY,{yv2->0}];
-maxD = D[g[yv2],yv2]/.maxY;
+If [absder=="True", maxD = Abs[D[g[yv2],yv2]/.maxY], maxD = D[g[yv2],yv2]/.maxY];
 rho =Max[maxD]; (* TAKE MAX GLOBAL DERIVATIVE *)
-If [rho == D[g[yv2], yv2] /. {yv2 -> 0}, 
+If [absder=="True", checkrho=Abs[D[g[yv2], yv2] /. {yv2 -> 0}], checkrho=D[g[yv2], yv2] /. {yv2 -> 0}];
+If [rho == checkrho, 
 WriteString["stdout","discarding GRF with max D at 0\\n"];
 WriteString["stdout",StringRiffle[PLIST,","],"\\n"];,
 
