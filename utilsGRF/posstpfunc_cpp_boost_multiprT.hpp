@@ -1,8 +1,5 @@
 
-
 #include <pybind11/pybind11.h>
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
 #include <vector>
 #include <cmath>
 #include <stdlib.h>
@@ -14,7 +11,6 @@
 
 
 using namespace std;
-using namespace Eigen;
 using boost::lexical_cast;
 using std::string;
 
