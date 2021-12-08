@@ -1,6 +1,18 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+ #include <pybind11/numpy.h>
+#include <stdlib.h>
+#include <iostream>
+#include <stdlib.h>
+#include <vector>
+#include <cmath>
+#include <boost/multiprecision/mpfr.hpp>
+#include <boost/multiprecision/mpc.hpp>
+#include <polynomial.hpp>
 #include <posstpfunc_cpp_boost_multiprT.hpp>
+#include <type_traits>
+ 
+using namespace std;
+
 
 
 namespace py=pybind11;
@@ -52,7 +64,8 @@ class GRFCalculations{
 	    }
 	    
 	    void fill_num_den(py::array_t<double> parsar, py::array_t<double>othervars);
-	    void fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval);
+        
+        void fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval);
 
 		void print_num_den(){
 	    	cout.precision(precision);
@@ -101,12 +114,22 @@ class GRFCalculations{
 
         }
 
-        py::array_t<double> interfaceps(bool verbose=false, double thresholdimag_=1e-15, bool writex05coeffs=false, bool absder=false, bool normalisefirst=true, string fnamecoeffs="filename.txt") {
+        py::array_t<double> interfaceps(bool verbose=false, double thresholdimag_=1e-15, bool minx0=false, bool maxx1=false, bool writex05coeffs=false, bool absder=false, bool normalisefirst=true, string fnamecoeffs="filename.txt") {
 
         
             vector<T>result;
             vector<T> min_max(2);
+            if (minx0 and maxx1){
+            	min_max={0,1};
+            }else{
             compute_min_maxGRF<T>(num,den,min_max);
+            if (minx0){
+            	min_max[0]=0;
+            }
+            if (maxx1){
+            	min_max[1]=1;
+            }
+            }
 
             T Gmin=min_max[0];
             T Gmax=min_max[1];
