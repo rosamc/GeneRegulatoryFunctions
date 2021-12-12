@@ -313,28 +313,30 @@ class PrepareFiles():
     
 
 
-    def __write_specialisations(self,fh,funcname_varGRF):
-        """Define functions to fill numerator and denominator of GRF, as well as rhos."""
+    def __write_inheritance_specialisations(self,fh,funcname,funcname_varGRF):
+        """Inherit class and define functions to fill numerator and denominator of GRF, as well as rhos."""
 
         fh.write("""template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
-void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_num_den(py::array_t<double> parsar, py::array_t<double>othervars){
+class %s_GRFCalculations: public GRFCalculations <T, Tpolyc, polytype, thresholdtype>{
+
+    public:
+
+    void fill_num_den(py::array_t<double> parsar, py::array_t<double>othervars){
             
         %s<T>(parsar, this->num,this->den,othervars);
-    
-};\n"""%funcname_varGRF)
+    }
 
-        fh.write("""template <typename T, typename Tpolyc, typename polytype, typename thresholdtype>
-void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval){
-            
+    void fill_rhos(py::array_t<double> parsar, py::array_t<double>othervars, double xval){
+
         rhos_%s<T>(parsar, this->rhos,othervars, xval);
+    }
     
-};\n"""%funcname_varGRF)
-        
-
+};\n"""%(funcname, funcname_varGRF, funcname_varGRF))
         
         
     def write_pybind_interface(self,fname=None, funcname=None, additionallinespars=None, posstpfromGRF=False, precision_types=[("long double","50","15"),("50","50","15"), ("100","100","15")]):
         """Writes .cpp file with GRF functions and computation of position and steepness. pybind is used to interface with them.
+        precision_types: [precision of GRF numerator and denominator, precision of root solving calculations, precision of thershold to decide if imaginary part is zero or not]
 
         """
 
@@ -349,7 +351,7 @@ void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_rhos(py::array_t<
         
         self.__write_GRF_coeffs(f,funcname_varGRF,additionallinespars) #coefficients of num and den of GRF with respect to input
         self.__write_rhos_coeffs(f,funcname_varGRF,additionallinespars) #rhos with respect to input
-        self.__write_specialisations(f,funcname_varGRF)
+        self.__write_inheritance_specialisations(f,funcname,funcname_varGRF)
         if posstpfromGRF:
             raise ValueError("Not implemented for posstpfromGRF=True")
             self.__write_interface_posstp_fromGRF(f,funcname_varGRF,typestring)
@@ -400,16 +402,16 @@ void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_rhos(py::array_t<
         for p in range(len(template_strings)):
             ts=template_strings[p]
             tn=template_names[p]
-            f.write("    py::class_<GRFCalculations%s>(m, \"GRFCalculations_%s\", py::module_local())\n"%(ts,tn))
+            f.write("    py::class_<%s_GRFCalculations%s>(m, \"GRFCalculations_%s\", py::module_local())\n"%(funcname, ts,tn))
             f.write("    .def(py::init())\n")
-            f.write("    .def(\"fill_num_den\", &GRFCalculations%s::fill_num_den)\n"%ts)
-            f.write("    .def(\"fill_rhos\", &GRFCalculations%s::fill_rhos)\n"%ts)
-            f.write("    .def(\"interfaceGRF\", &GRFCalculations%s::interfaceGRF)\n"%ts)
-            f.write("    .def(\"getrhos\", &GRFCalculations%s::getrhos)\n"%ts)
-            f.write("    .def(\"interfaceps\", &GRFCalculations%s::interfaceps,py::arg(\"verbose\")=false, py::arg(\"thresholdimag\")=1e-15,py::arg(\"minx0\")=false,py::arg(\"maxx1\")=false,py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false, py::arg(\"normalisefirst\")=true, py::arg(\"fnamecoeffs\")=\"coefficients.txt\")\n"%ts)
-            f.write("    .def(\"interface_return_num_den\", &GRFCalculations%s::interface_return_num_den)\n"%ts)
-            f.write("    .def(\"interfacemonotonic\", &GRFCalculations%s::interfacemonotonic, py::arg(\"thresholdimag\")=1e-15)\n"%ts)
-            f.write("    .def(\"print_num_den\", &GRFCalculations%s::print_num_den);\n\n"%ts)
+            f.write("    .def(\"fill_num_den\", &%s_GRFCalculations%s::fill_num_den)\n"%(funcname,ts))
+            f.write("    .def(\"fill_rhos\", &%s_GRFCalculations%s::fill_rhos)\n"%(funcname,ts))
+            f.write("    .def(\"interfaceGRF\", &%s_GRFCalculations%s::interfaceGRF)\n"%(funcname,ts))
+            f.write("    .def(\"getrhos\", &%s_GRFCalculations%s::getrhos)\n"%(funcname,ts))
+            f.write("    .def(\"interfaceps\", &%s_GRFCalculations%s::interfaceps,py::arg(\"verbose\")=false, py::arg(\"thresholdimag\")=1e-15,py::arg(\"minx0\")=false,py::arg(\"maxx1\")=false,py::arg(\"writex05coeffs\")=false, py::arg(\"absder\")=false, py::arg(\"normalisefirst\")=true, py::arg(\"fnamecoeffs\")=\"coefficients.txt\")\n"%(funcname,ts))
+            f.write("    .def(\"interface_return_num_den\", &%s_GRFCalculations%s::interface_return_num_den)\n"%(funcname,ts))
+            f.write("    .def(\"interfacemonotonic\", &%s_GRFCalculations%s::interfacemonotonic, py::arg(\"thresholdimag\")=1e-15)\n"%(funcname,ts))
+            f.write("    .def(\"print_num_den\", &%s_GRFCalculations%s::print_num_den);\n\n"%(funcname,ts))
 
         f.write("}\n")
         f.close()
@@ -418,6 +420,10 @@ void GRFCalculations<T, Tpolyc, polytype, thresholdtype>::fill_rhos(py::array_t<
         print('writing mathematica file. max1 set to', max1)
         if self.strategy=="pol" and max1:
             print("pol model may not asymptote to 1. Set max1 to False. Exiting...")
+            raise ValueError
+
+        if self.strategy=="pol_basal" and (max1 or min0):
+            print("pol model with basal expression may not start at 0 and may not asymptote to 1. Set min0=False and max1 to False. Exiting...")
             raise ValueError
         
         if len(self.concvars)>1:
@@ -437,6 +443,9 @@ Print[\"starting at\"];
 Print[infolder];
 infiles=FileNames[\"mat*.in\"];\n
         """)
+        if self.strategy=="pol_basal":
+            f.write("P=ToExpression[$ScriptCommandLine[[4]]];")
+            f.write("Print[\"P value is \", P];")
         parstring_underscore=''
         for pnum,par in enumerate(self.parlist):
             par=par.replace('_','U')
@@ -569,6 +578,9 @@ Close[outf2];
         print('writing mathematica file. max1 set to', max1)
         if self.strategy=="pol" and max1:
             print("pol model may not asymptote to 1. Set max1 to False. Exiting...")
+            raise ValueError
+        if self.strategy=="pol_basal" and (max1 or min0):
+            print("pol model with basal expression may not start at 0 and may not asymptote to 1. Set min0=False and max1 to False. Exiting...")
             raise ValueError
         if len(self.concvars)>1:
             if additionallinespars is None:
@@ -752,8 +764,13 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         
         super().__init__(varGRF=varGRF,concvars=concvars)
         self.N=N
-        if 'P' in concvars and strategy != "pol":
-            print("For Pol model strategy should be pol. Exiting...")
+        strategies=["an", "av", "oom", "pol", "pol_basal", "anyfi", "multiTF"]
+        if not strategy in strategies:
+            print("%s is not a known strategy"%strategy)
+            print("Acceptable strategies are %s"%",".join(strategies))
+
+        if 'P' in concvars and not strategy in ["pol", "pol_basal"]:
+            print("For Pol model strategy should be pol or pol_basal. Exiting...")
             raise ValueError
         if strategy=="multiTF":
             if sitedict is None:
@@ -763,7 +780,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                 for key in sitedict.keys():
                     sitedict2[str(key)]=str(sitedict[key])
                 sitedict=sitedict2
-        self.strategy=strategy #an, av, oom, pol, anyfi, multiTF
+        self.strategy=strategy #an, av, oom, pol, pol_basal, anyfi, multiTF
         self.sitedict=sitedict
 
     
@@ -950,6 +967,15 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             for i in range(len(self.all_rhos)):
                 rho=self.all_rhos[i]
                 if 'P' in rho and self.varGRF in rho:
+                    numstring+='rho%d+'%(i+1)
+            numstring=numstring.strip('+')
+            numstring+=')'
+
+        if self.strategy=='pol_basal':
+            numstring='1*('
+            for i in range(len(self.all_rhos)):
+                rho=self.all_rhos[i]
+                if 'P' in rho: #only P is enough
                     numstring+='rho%d+'%(i+1)
             numstring=numstring.strip('+')
             numstring+=')'
