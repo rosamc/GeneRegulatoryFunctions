@@ -135,6 +135,12 @@ class GRFCalculations{
             T Gmax=min_max[1];
             T midpoint=Gmin+0.5*(Gmax-Gmin);
 
+            if (verbose){
+            	cout << "Gmin: " << Gmin << "\n";
+            	cout << "Gmax: " << Gmax << "\n";
+            	cout << "midpoint: " << midpoint << "\n";
+            }
+
             
             if  (Gmax<0){
                 result={-1.0,-1.0,-1.0};
