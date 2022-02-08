@@ -760,29 +760,41 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
     """Child class to be used for hypercube graphs with only TF or TF and Pol. 
     N is the number of TF binding sites (excluding polymerase in case of the Pol model).
     Initialise only with varGRF and concvars."""
-    def __init__(self,varGRF='x',concvars=['x','P'], N=3, strategy='pol', sitedict=None):
+    def __init__(self,varGRF='x',concvars=['x','P'], N=3, c=1, strategy='pol', sitedict=None, intrinsiccoop=False,samesites=False):
         
         super().__init__(varGRF=varGRF,concvars=concvars)
-        self.N=N
-        strategies=["an", "av", "oom", "pol", "pol_basal", "anyfi", "multiTF"]
+        
+        self.multiconf=False
+        self.multiTF=False
+        if intrinsiccoop is True and samesites is True:
+            print("Intrinsiccoop and samesites are incompatible. Exiting...")
+            raise ValueError
+        
+        strategies=["an", "av", "oom", "pol", "pol_basal", "anyfi"]
         if not strategy in strategies:
             print("%s is not a known strategy"%strategy)
             print("Acceptable strategies are %s"%",".join(strategies))
+        else:
+            self.strategy=strategy #an, av, oom, pol, pol_basal, anyfi, 
 
-        if 'P' in concvars and not strategy in ["pol", "pol_basal"]:
-            print("For Pol model strategy should be pol or pol_basal. Exiting...")
+        if ('P' in concvars and not strategy in ["pol", "pol_basal"]) or (strategy in ["pol", "pol_basal"] and not 'P' in concvars):
+            print("Only for Pol model strategy should be pol or pol_basal.  Alternatively, use multiTF or multiTF&multiconf strategies with a variable name that is not P. Exiting...")
             raise ValueError
-        if strategy=="multiTF":
-            if sitedict is None:
-                print("For strategy multiTF a dictionary relating each site to its corresponding TF is necessary. The dictionary should have each site as a string key, and the corresponding TF as value. Exiting...")
-            else:
-                sitedict2=dict() #make sure keys are strings
-                for key in sitedict.keys():
-                    sitedict2[str(key)]=str(sitedict[key])
-                sitedict=sitedict2
-        self.strategy=strategy #an, av, oom, pol, pol_basal, anyfi, multiTF
-        self.sitedict=sitedict
-
+        if sitedict is not None:
+            
+            sitedict2=dict() #make sure keys are strings
+            for key in sitedict.keys():
+                sitedict2[str(key)]=str(sitedict[key])
+            sitedict=sitedict2
+            self.sitedict=sitedict
+            self.multiTF=True
+    
+        if c>1:
+            self.multiconf=True
+        self.N=N
+        self.c=c
+        self.intrinsiccoop=intrinsiccoop
+        self.samesites=samesites
     
         
     def __get_rho(self, sites, sitep=None,c=1):
@@ -794,7 +806,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         if len(sites_)==1:
             TFs=""
             site=sites_[0]
-            if self.strategy=="multiTF":
+            if self.multiTF:
                 TFs+="%s**1"%self.sitedict[site]
             else:
                 TFs+="%s**1"%self.varGRF
@@ -847,7 +859,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             if sites_[-1]==sitep:
                 ns=len(sites_)-1
 
-                if self.strategy=="multiTF":
+                if self.multiTF:
                     TFlist=[self.sitedict[site] for site in sites_[:-1]]
                     TFs=",".join(TFlist)
                 else:
@@ -857,7 +869,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                 rho+='P * wp%s * %s'%(''.join(sites_[:-1]),TFs)
             else:
                 ns=len(sites_)
-                if self.strategy=="multiTF":
+                if self.multiTF:
                     TFlist=[self.sitedict[site] for site in sites_]
                     TFs=""
                     for TF in np.unique(TFlist):
@@ -938,7 +950,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
             x.sort(key=lambda x:len(x))
             symbols_str_sorted_.extend(x)
         print(symbols_str_sorted_)
-        if self.strategy=="anyfi" or self.strategy=="multiTF":
+        if self.strategy=="anyfi":
             list_fi=["f%d"%(i+1) for i in range(nrhos)]
             self.parlist=list_fi+symbols_str_sorted_ #I am putting them at the beginning because the li need to go at the end so that they are appropriately treated when exploring
         else:
@@ -948,6 +960,8 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
         #get GRF
         
         if self.strategy=='an':
+            if self.c>1:
+                raise Exception("strategy an is not implemented for more than 1 conformation.")
             numstring='1*(rho%d)'%(len(self.all_rhos))
         if self.strategy=='av':
             xppat=re.compile('%s\*\*([0-9]*)'%self.varGRF)
@@ -979,7 +993,7 @@ class PrepareFilesEqbindingmodels(PrepareFiles):
                     numstring+='rho%d+'%(i+1)
             numstring=numstring.strip('+')
             numstring+=')'
-        if self.strategy=="anyfi" or self.strategy=="multiTF":
+        if self.strategy=="anyfi":
             numstring=''
             for i in range(nrhos):
                 #rho=self.all_rhos[i]
@@ -1026,20 +1040,7 @@ class PrepareFilesEqbindingmodels_multiconf(PrepareFilesEqbindingmodels):
     samesites=True if all sites in a conformation behave equally. 
     If intrinsiccoop=False and samesites=False, then each site at each conformation has their own affinity, which is independent of the other occupied sites at that conformation."""
 
-    def __init__(self,varGRF='x',concvars=['x'], N=3, strategy='av', c=2, intrinsiccoop=False,samesites=False):
-        super().__init__(varGRF=varGRF,concvars=concvars,strategy=strategy,N=N)
-        if c<2:
-            print("multiconf should only be used if there are at least 2 conformations. Exiting...")
-            raise ValueError
-        if intrinsiccoop is True and samesites is True:
-            print("Intrinsiccoop and samesites are incompatible. Exiting...")
-            raise ValueError
-        if strategy=="pol":
-            print("strategy multiconf not implemented for pol model")
-            raise ValueError
-        self.multiconf=True
-        self.c=c
-        self.intrinsiccoop=intrinsiccoop
-        self.samesites=samesites
-         
+    def __init__(self,varGRF='x',concvars=['x'], N=3, strategy='av', c=2, intrinsiccoop=False,samesites=False,sitedict=None):
+        raise Exception("This class is deprecated. Use PrepareFilesEqbindingmodels with the desired number of conformations passed to the c argument, and appropriate intrinsiccoop and samesites flags.")
+
     
