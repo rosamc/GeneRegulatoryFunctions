@@ -866,7 +866,7 @@ class BoundaryExplorer():
         while i < niters_target and converged == False:
             d=-1
            
-            p,s,pars=self.mutate_parset(parset,trials=1,prob_par=prob_par,prob_replace=prob_replace,extr_uniform=extr_uniform,targetted=True)
+            p,s,pars=self.mutate_parset(parset,trials=1,prob_par=prob_par,prob_replace=prob_replace,extr_uniform=extr_uniform,targetted=True) #note that prob_replace doesn't do anything here
              
             if p is not None:
                 d=(tp-p)**2+(ts-s)**2 
@@ -884,7 +884,7 @@ class BoundaryExplorer():
             if d>-1 and d < tolerance: #it is sufficiently close to the target. added d>-1
                 converged=True
             elif i > 20:
-                if np.all(np.diff(distances[i-20:i]))<tolerance/2: #no improvement done
+                if np.all(np.diff(distances[i-20:i]))<tolerance/2: #no improvement done. Careful, this does nothing!
                     converged=True
             i+=1
             
@@ -950,7 +950,7 @@ class BoundaryExplorer():
 
                     #m=-1/m #perpendicular
 
-                    alpha=np.arctan(m1)
+                    alpha=np.arctan(m1) #gets the angle between the point and its neighbor
                     alpha_theta=alpha+theta
                     if np.abs(alpha_theta-np.pi/2)<0.0001:
                         #vertical line
@@ -1286,7 +1286,7 @@ class BoundaryExplorer():
                                     plt.plot([x,idx_p],[y,idx_s],color='r')
                                     print('starting at ',p,s,'with indices',idx_p,idx_s,'trying to go to',pt,st)
                                 
-                                self.approach_target(niters_target,self.mat_pars[y,x].copy(),[p,s],[pt,st],prob_replace=prob_replace,prob_par=prob_par,extr_uniform=extr_uniform,tolerance=tol_target)
+                                self.approach_target(niters_target,self.mat_pars[y,x].copy(),[p,s],[pt,st],prob_replace=prob_replace,prob_par=prob_par,extr_uniform=extr_uniform,tolerance=tol_target) #note that prob_replace doesn't do anything here
 
                 self.find_boundary_points()
                 self.nboundary[i]=np.sum(self.mat-prev_mat)
@@ -1334,7 +1334,7 @@ class BoundaryExplorer():
                                 pt=self.col_ar[idx_p] #target position
                                 st=self.row_ar[idx_s] #target steepness
                                 
-                                self.approach_target(niters_target,self.mat_pars[y,x].copy(),[p,s],[pt,st],prob_replace=prob_replace,prob_par=prob_par,extr_uniform=extr_uniform,tolerance=tol_target)
+                                self.approach_target(niters_target,self.mat_pars[y,x].copy(),[p,s],[pt,st],prob_replace=prob_replace,prob_par=prob_par,extr_uniform=extr_uniform,tolerance=tol_target) #note that prob_replace doesn't do anything here
                         
                                 
         
