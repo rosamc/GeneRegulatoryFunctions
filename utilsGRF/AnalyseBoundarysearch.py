@@ -283,7 +283,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     if jid_num is not None:
                         stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
                         lines=stdoutfh.readlines()
-                        if len(lines)>2:
+                        if len(lines)>=2:
                             stdout=lines[-2:]
                             stdoutfh.close()
                         else:
@@ -291,15 +291,17 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                                 stdoutfh.close()
                                 stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num2,i+1)),'r')
                                 lines=stdoutfh.readlines()
-                                if len(lines)>2:
+                                if len(lines)>=2:
                                     stdout=lines[-2:]
                                     stdoutfh.close()
                                 else:
                                     print("Could not determine convergence and timediff for %d"%(i+1))
                                     converged=None
+                                    stdout=[]
+                        if len(stdout)>0:
 
-                        timediff=stdout[0].split(septime)[1].strip()
-                        converged=stdout[1].strip()
+                            timediff=stdout[0].split(septime)[1].strip()
+                            converged=stdout[1].strip()
                         if not converged in ["True","False"]: #if it was killed due to time limit, then it is only the iteration number. Discard.
                             converged="-"
                             timediff="-"
