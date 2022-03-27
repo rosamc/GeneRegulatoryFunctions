@@ -110,7 +110,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                            jsonf=True,septime=":",getallpoints=False,unfinishedfolder=None,difparslimit=False):
     """Plots the boundaries generated in a parallel search. 
     njobs: number of parallel jobs run.
-    final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False).
+    final: True/ False depending on whether the jobs finished (True) or were cut due to time limit on the cluster (False). Set to True if some jobs finished, and use together with unfinishedfolder.
     printtocheck: if True, prints the boundary points to a file in order to check with mathematica.
     flder: directory where the results to analyse are.
     basename: name given to the matrices/settings file when executing the search. 
@@ -265,8 +265,16 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     last_iter_m=iters[argsort[-1]]
                     last_iter=last_iter_m
 
-                    mat=np.load(os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m)))
-                    mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
+                    try:
+                        namemat=os.path.join(outfolder,basename_mat+'_%d.npy'%(last_iter_m))
+                        mat=np.load(namemat)
+                        mat_pars=np.load(os.path.join(outfolder,basename_mat_pars+'_%d.npy'%(last_iter_m)))
+                    except ValueError as err:
+                        if "cannot reshape array of size" in str(err):
+                            print("! matrix %s could not be reshaped and triggered an error. Continuing with the rest. "%namemat)
+                        else:
+                            raise err
+
                     timediff='-'
                     converged='-'
                     cont=True
@@ -278,8 +286,15 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                     outf=outffinal
                     namemat=os.path.join(outf,'%s_%d_last.npy'%(basename_mat,i))
                     print(namemat)
-                    mat=np.load(namemat)
-                    mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
+                    try:
+                        mat=np.load(namemat)
+                        mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
+                    except ValueError as err:
+                        if "cannot reshape array of size" in str(err):
+                            print("! matrix %d could not be reshaped and triggered an error. Continuing with the rest. "%namemat)
+                        else:
+                            raise err
+
                     if jid_num is not None:
                         stdoutfh=open(os.path.join(fldr,'%s_%d.out'%(jid_num,i+1)),'r')
                         lines=stdoutfh.readlines()
