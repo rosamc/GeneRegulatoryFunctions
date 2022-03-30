@@ -291,7 +291,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                         mat_pars=np.load(os.path.join(outf,'%s_%d_last.npy'%(basename_mat_pars,i)))
                     except ValueError as err:
                         if "cannot reshape array of size" in str(err):
-                            print("! matrix %d could not be reshaped and triggered an error. Continuing with the rest. "%namemat)
+                            print("! matrix %s could not be reshaped and triggered an error. Continuing with the rest. "%namemat)
                         else:
                             raise err
 
