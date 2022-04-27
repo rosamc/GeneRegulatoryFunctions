@@ -83,14 +83,16 @@ class GRFCalculations{
 
         }
 
-        py::array_t<double> getrhos(){
-        	py::array_t<double> resultpy = py::array_t<double>(rhos.size());
+        py::array_t<double> getrhos(int rhsz){
+        	//"""rhsz is the number of rhos. If we just calculate it based on the size of rhos vector, it is not working"""
+        	py::array_t<double> resultpy = py::array_t<double>(rhsz);
 		    py::buffer_info bufresultpy = resultpy.request();
 		    double *ptrresultpy=(double *) bufresultpy.ptr;
-        	for (int i=0; i<rhos.size();i++){
+		    
+        	for (int i=0; i<rhsz;i++){
         		ptrresultpy[i]=convert_to_double<T>(rhos[i]);
-
         	}
+        	return resultpy;
 
         }
 
