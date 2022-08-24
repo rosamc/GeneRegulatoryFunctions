@@ -152,11 +152,11 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
         if len(folders_unfinished)>0:
             toprocess_unf=[]
             for folder in folders_unfinished:
-                matfiles=glob.glob(os.path.join(unfinishedfolder,folder)+"/mat_pars*")
+                matfiles=glob.glob(folder+"/mat_pars*")
                 jid=folder.split("_")[-1]
                 if not jid in jids_done:
                     unfinished_mask.append(True)
-                    toprocess_unf.append(os.path.join(unfinishedfolder,folder))
+                    toprocess_unf.append(folder)
                     
                     if len(matfiles)>0:
                         toprocess.append(True)
@@ -254,7 +254,7 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
                 folder=folders[idxi] #get folder corresponding to that jid
                 if toprocess_mask[idxi]:
                 
-                    outfolder=os.path.join(unfinishedfolder,folder)
+                    outfolder=folder #os.path.join(unfinishedfolder,folder)
                     outf=outfolder
                     print(outf)
                     
