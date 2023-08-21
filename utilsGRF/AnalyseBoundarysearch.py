@@ -407,7 +407,9 @@ def plot_boundaries_search(njobs=None,final=True, printtocheck=True, fldr='',bas
 
         if getallpoints:
             if len(allpointslist)>0:
-                allpdf=pd.DataFrame(np.array(allpointslist),columns=allpointscolnames)
+                allpdf=pd.DataFrame(np.array(allpointslist,dtype=object),columns=allpointscolnames)
+                allpdf.iloc[:,0]=allpdf.iloc[:,0].astype(float)
+                allpdf.iloc[:,1]=allpdf.iloc[:,1].astype(float)
             else:
                 allpdf=None
                 
