@@ -8,3 +8,4 @@ Some updates may be needed as the code has changed recently. This will be added 
 
 - BoundaryFinder.py: this code explores a model parameter space to identify the limits of the behaviour of a 2D property from the model. See corresponding README-BoundaryFinder for details
 
+For a recent example on how to use the code, see repository https://github.com/rosamc/universal-boundaries-Hopfield-barrier.
